@@ -16,9 +16,9 @@
 # z_gks = cluster memberships of groups (posterior classification probabilities)
 # pi_ks= mixing proportions (prior classification probabilities)
 # Lambda_ks = cluster-specific loadings, access loadings of cluster k via Lambda_ks[[k]
-# Psi_gs = group-specific unique variances
-# Phi_gks = group- and cluster-specific factor (co)variances
-# mu_gs = group-specific means
+# Psi_gs = group-specific unique variances, access loadings of group g via Psi_gs[[g]]
+# Phi_gks = group- and cluster-specific factor (co)variances, access (co)variances of group g in cluster k via Phi_gks[[g,k]
+# mu_gs = group-specific means, acces means of group g via mu_gs[g,]
 # bestloglik = loglikelihood of best start
 # logliks = loglikelihoods of all starts
 # nrpars = number of free parameters, to be used for model selection in combination with bestloglik

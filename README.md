@@ -1,5 +1,4 @@
-# MixtureMG_FA
-R-code for mixture multigroup factor analysis
+# MixtureMG_FA: R-code for mixture multigroup factor analysis
 
 For now, please cite preprint: https://psyarxiv.com/7fdwv
 

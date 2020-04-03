@@ -3,7 +3,7 @@ R-code for mixture multigroup factor analysis
 
 For now, please cite preprint: https://psyarxiv.com/7fdwv
 
-This version deals with factor loading differences (finds clusters of groups based on similarity of their factor loadings, given the user-specified number of clusters) and uses EFA;
+This version deals with factor loading differences (finds clusters of groups based on similarity of their factor loadings, given the user-specified number of clusters) and uses EFA
 
 For model selection, it is advised to use BIC_G (number of groups as sample size) in combination with CHull (see preprint)
 
@@ -33,9 +33,9 @@ Phi_gks = group- and cluster-specific factor (co)variances, access (co)variances
 
 mu_gs = group-specific means, acces means of group g via mu_gs[g,]
 
-bestloglik = loglikelihood of best start
+bestloglik = loglikelihood of best start (iterated till complete convergence)
 
-logliks = loglikelihoods of all starts
+logliks = loglikelihoods of all starts (iterated till preliminary convergence, see paper)
 
 nrpars = number of free parameters, to be used for model selection in combination with bestloglik
 

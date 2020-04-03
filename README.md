@@ -6,6 +6,8 @@ This version deals with factor loading differences (finds clusters of groups bas
 
 For model selection, it is advised to use BIC_G (number of groups as sample size) in combination with CHull (see preprint)
 
+Currently uses the 'multicool' package: https://cran.r-project.org/web/packages/multicool/index.html
+
 # INPUT:
 Xsup = data matrix for all groups (rows are subjects nested within groups, columns are the variables to be factor-analyzed)
 

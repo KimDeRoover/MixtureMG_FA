@@ -15,10 +15,10 @@
 # OUTPUT:
 # z_gks = cluster memberships of groups (posterior classification probabilities)
 # pi_ks= mixing proportions (prior classification probabilities)
-# Lambda_ks = cluster-specific loadings, access loadings of cluster k via Lambda_ks[[k]
+# Lambda_ks = cluster-specific loadings, access loadings of cluster k via Lambda_ks[[k]]
 # Psi_gs = group-specific unique variances, access loadings of group g via Psi_gs[[g]]
-# Phi_gks = group- and cluster-specific factor (co)variances, access (co)variances of group g in cluster k via Phi_gks[[g,k]
-# mu_gs = group-specific means, acces means of group g via mu_gs[g,]
+# Phi_gks = group- and cluster-specific factor (co)variances, access (co)variances of group g in cluster k via Phi_gks[[g,k]]
+# mu_gs = group-specific means, access means of group g via mu_gs[g,]
 # bestloglik = loglikelihood of best start
 # logliks = loglikelihoods of all starts
 # nrpars = number of free parameters, to be used for model selection in combination with bestloglik
@@ -56,7 +56,7 @@ MixtureMG_FA <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,start = 1,nrun
   
   if(start==1){
     # pre-selection of random partitions
-    nrtrialstarts=min(nruns*10,Stirling2(ngroup,nclust)) # generate 'nruns'*10 different random partitions or the maximum number that is possible given ngroup and nclust (uses Multicool package)
+    nrtrialstarts=min(nruns*10)# generate 'nruns'*10 different random partitions
     randpartvecs=matrix(0,nrtrialstarts,ngroup);
     for (trialstart in 1:nrtrialstarts){
       aris=1;
@@ -521,7 +521,7 @@ MixtureMG_FA <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,start = 1,nrun
 
 
 #' Update the cluster-membership probabilities z_gk
-#' Reuses the loglik_gks calculated in the loglikelihoodfunction to save time.
+#' Reuses the loglik_gks to save time.
 
 UpdPostProb <- function(pi_ks, loglik_gks, ngroup, nclust, nfact){
   max_g <-rep(0,ngroup)
@@ -538,7 +538,7 @@ UpdPostProb <- function(pi_ks, loglik_gks, ngroup, nclust, nfact){
   #divide by the sum of the above calculated part 
   for(g in 1:ngroup){
     for(k in 1:nclust){
-      z_gks[g,k] <- round(z_gks[g,k])/sum(z_gks[g,],digits=16) # kan in één stap met diagonale matrix? afronden?
+      z_gks[g,k] <- round((z_gks[g,k])/sum(z_gks[g,]),digits=16)
     }
   }
   return(z_gks)

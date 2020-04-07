@@ -39,3 +39,5 @@ logliks = loglikelihoods of all starts (iterated till preliminary convergence, s
 nrpars = number of free parameters, to be used for model selection in combination with bestloglik
 
 convergence = 2 if converged on loglikelihood, 1 if converged on parameter changes, 0 if not converged code for mixture multigroup factor analysis
+
+If you labeled the output of MixtureMG_FA as 'Output', extract the different parameters as follows: e.g., Lambda_ks=Output$Lambda_ks.

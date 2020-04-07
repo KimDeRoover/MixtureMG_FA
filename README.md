@@ -4,9 +4,7 @@ For now, please cite preprint: https://psyarxiv.com/7fdwv
 
 This version deals with factor loading differences (finds clusters of groups based on similarity of their factor loadings, given the user-specified number of clusters) and uses EFA
 
-For model selection, it is advised to use BIC_G (number of groups as sample size) in combination with CHull (see preprint)
-
-Currently uses the 'multicool' package: https://cran.r-project.org/web/packages/multicool/index.html
+For model selection, it is advised to use BIC_G (number of groups as sample size) in combination with CHull (see preprint, https://www.rdocumentation.org/packages/multichull/versions/1.0.0)
 
 # INPUT:
 Xsup = data matrix for all groups (rows are subjects nested within groups, columns are the variables to be factor-analyzed)
@@ -26,13 +24,13 @@ z_gks = cluster memberships of groups (posterior classification probabilities)
 
 pi_ks= mixing proportions (prior classification probabilities)
 
-Lambda_ks = cluster-specific loadings, access loadings of cluster k via Lambda_ks[[k], rotate as desired
+Lambda_ks = cluster-specific loadings, access loadings of cluster k via Lambda_ks[[k]], rotate as desired
 
 Psi_gs = group-specific unique variances, access loadings of group g via Psi_gs[[g]]
 
-Phi_gks = group- and cluster-specific factor (co)variances, access (co)variances of group g in cluster k via Phi_gks[[g,k]
+Phi_gks = group- and cluster-specific factor (co)variances, access (co)variances of group g in cluster k via Phi_gks[[g,k]]
 
-mu_gs = group-specific means, acces means of group g via mu_gs[g,]
+mu_gs = group-specific means, access means of group g via mu_gs[g,]
 
 bestloglik = loglikelihood of best start (iterated till complete convergence)
 

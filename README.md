@@ -17,7 +17,9 @@ nfactors = user-specified number of factors
 
 Maxiter = maximum number of iterations
 
-nruns = number of starts (based on pre-selected random partitions, when start = 1, the only type of initialization that is currently supported)
+nruns = number of starts (based on pre-selected random partitions, when start = 1)
+
+startpartition = partition of groups to start from (use with start = 2 and nruns = 1)
 
 # OUTPUT:
 z_gks = cluster memberships of groups (posterior classification probabilities)

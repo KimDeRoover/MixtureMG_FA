@@ -10,7 +10,8 @@
 # nclust = user-specified number of clusters
 # nfactors = user-specified number of factors
 # Maxiter = maximum number of iterations
-# nruns = number of starts (based on pre-selected random partitions, when start = 1, the only type of initialization that is currently supported)
+# nruns = number of starts (based on pre-selected random partitions when start = 1)
+# startpartition = partition of groups to start from (use with start = 2 and nruns = 1)
 
 # OUTPUT:
 # z_gks = cluster memberships of groups (posterior classification probabilities)
@@ -24,9 +25,16 @@
 # nrpars = number of free parameters, to be used for model selection in combination with bestloglik
 # convergence = 2 if converged on loglikelihood, 1 if converged on parameter changes, 0 if not converged
 
-MixtureMG_FA <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,start = 1,nruns = 50){
+MixtureMG_FA <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,start = 1,nruns = 50,startpartition){
   
   ngroup <- length(N_gs)
+  if(nrow(N_gs)!=ngroup || is.null(nrow(N_gs))){ # make sure N_gs is a column vector
+    N_gs_colvec=matrix(0,ngroup,1)
+    for (g in 1:ngroup){
+      N_gs_colvec[g,]=N_gs[g]
+    }
+    N_gs <- N_gs_colvec
+  }
   nvar <- ncol(Xsup)
   N <- sum(N_gs);
   IM <- diag(nclust)
@@ -56,25 +64,25 @@ MixtureMG_FA <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,start = 1,nrun
   
   if(start==1){
     # pre-selection of random partitions
-    nrtrialstarts=min(nruns*10)# generate 'nruns'*10 different random partitions
+    nrtrialstarts=nruns*10 # generate 'nruns'*10 different random partitions
     randpartvecs=matrix(0,nrtrialstarts,ngroup);
     for (trialstart in 1:nrtrialstarts){
-      aris=1;
-      while (sum(aris==1)>0){
-        cl=0;
-        while(length(cl)<nclust){
-          randpartvec <- sample(1:nclust,ngroup,replace=TRUE) # generate random partition
-          cl=unique(randpartvec)
-        }
-        nstartprev=trialstart-1
-        aris=matrix(0,nstartprev,1)
-        if (nstartprev>0){
-          for (r in 1:nstartprev){
-            prevpartvec=randpartvecs[r,]
-            aris[r]<-adjrandindex(prevpartvec,randpartvec)
-          }
-        }
+      # aris=1;
+      # while (sum(aris==1)>0){
+      cl=0;
+      while(length(cl)<nclust){
+        randpartvec <- sample(1:nclust,ngroup,replace=TRUE) # generate random partition
+        cl=unique(randpartvec)
       }
+      # nstartprev=trialstart-1
+      # aris=matrix(0,nstartprev,1)
+      # if (nstartprev>0){
+      #   for (r in 1:nstartprev){
+      #     prevpartvec=randpartvecs[r,]
+      #     aris[r]<-adjrandindex(prevpartvec,randpartvec)
+      #   }
+      # }
+      # }
       randpartvecs[trialstart,]=randpartvec
     }
     ODLLs_trialstarts=rep(0,nrtrialstarts,1)
@@ -201,42 +209,45 @@ MixtureMG_FA <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,start = 1,nrun
     heywood <- 0
     if(start==1){
       randpartvec <- randpartvecs[run,]
-      Lambda_ks <- matrix(list(NA),nrow = 1, ncol=nclust)
-      uniq_ks <- matrix(0,nclust,nvar)
-      for(k in 1:nclust){
-        Xsup_k=vector();
-        for(g in 1:ngroup){
-          if(randpartvec[g]==k){
-            X=Xsup[Ncum[g,1]:Ncum[g,2],]
-            Xsup_k=rbind(Xsup_k,X)
-          }
-        }
-        S_k <- (1/sum(N_gs[randpartvec==k]))*(t(Xsup_k)%*%Xsup_k)
-        ed<-eigen(S_k, symmetric=TRUE, only.values = FALSE)
-        val<-ed$values
-        u<-ed$vectors
-        totalerror=sum((val[-seq_len(nfactors)]))
-        meanerror=totalerror/(nvar-nfactors) # mean error variance: mean variance in discarded dimensions
-        Uniq=rep(meanerror,nvar)
-        lambda_k=u[,seq_len(nfactors)] %*% sqrt(diag(val[seq_len(nfactors)]-Uniq[seq_len(nfactors)]))
-        Lambda_ks[[k]]=lambda_k
-        uniq_ks[k,]=Uniq
-      }
-      Psi_gs <- matrix(list(NA), nrow = ngroup, ncol = 1) # initialize group-specific unique variances
-      Phi_gks <- matrix(list(NA), nrow = ngroup, ncol = nclust) # initialize group- and cluster-specific factor covariances
+    }
+    if(start==2){
+      randpartvec <- startpartition
+    }
+    Lambda_ks <- matrix(list(NA),nrow = 1, ncol=nclust)
+    uniq_ks <- matrix(0,nclust,nvar)
+    for(k in 1:nclust){
+      Xsup_k=vector();
       for(g in 1:ngroup){
-        k=randpartvec[g]
-        Psi_gs[[g]]=diag(uniq_ks[k,])
-        for(k2 in 1:nclust){
-          Phi_gks[[g,k2]]=diag(nfactors)
+        if(randpartvec[g]==k){
+          X=Xsup[Ncum[g,1]:Ncum[g,2],]
+          Xsup_k=rbind(Xsup_k,X)
         }
       }
-      
-      # initialize prior and posterior classification probabilities
-      z_gks=IM[randpartvec,]
-      pi_ks=(1/ngroup)*apply(z_gks,2,sum)
-      
-    } # einde if-loop voor start==1
+      S_k <- (1/sum(N_gs[randpartvec==k]))*(t(Xsup_k)%*%Xsup_k)
+      ed<-eigen(S_k, symmetric=TRUE, only.values = FALSE)
+      val<-ed$values
+      u<-ed$vectors
+      totalerror=sum((val[-seq_len(nfactors)]))
+      meanerror=totalerror/(nvar-nfactors) # mean error variance: mean variance in discarded dimensions
+      Uniq=rep(meanerror,nvar)
+      lambda_k=u[,seq_len(nfactors)] %*% sqrt(diag(val[seq_len(nfactors)]-Uniq[seq_len(nfactors)]))
+      Lambda_ks[[k]]=lambda_k
+      uniq_ks[k,]=Uniq
+    }
+    Psi_gs <- matrix(list(NA), nrow = ngroup, ncol = 1) # initialize group-specific unique variances
+    Phi_gks <- matrix(list(NA), nrow = ngroup, ncol = nclust) # initialize group- and cluster-specific factor covariances
+    for(g in 1:ngroup){
+      k=randpartvec[g]
+      Psi_gs[[g]]=diag(uniq_ks[k,])
+      for(k2 in 1:nclust){
+        Phi_gks[[g,k2]]=diag(nfactors)
+      }
+    }
+    
+    # initialize prior and posterior classification probabilities
+    z_gks=IM[randpartvec,]
+    pi_ks=(1/ngroup)*apply(z_gks,2,sum)
+    
     
     Sigma_gks <- matrix(list(NA), nrow = ngroup, ncol = nclust)
     invSigma_gks <- matrix(list(NA), nrow = ngroup, ncol = nclust)
@@ -520,8 +531,8 @@ MixtureMG_FA <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,start = 1,nrun
 # functions for E-step/posterior classification probabilities and M-step
 
 
-#' Update the cluster-membership probabilities z_gk
-#' Reuses the loglik_gks to save time.
+# Update the cluster-membership probabilities z_gk
+# Reuses the loglik_gks to save time
 
 UpdPostProb <- function(pi_ks, loglik_gks, ngroup, nclust, nfact){
   max_g <-rep(0,ngroup)
@@ -535,12 +546,11 @@ UpdPostProb <- function(pi_ks, loglik_gks, ngroup, nclust, nfact){
     z_gks[g,] <- exp(z_gks[g,]-rep(max_g[g],nclust))
   }
   
-  #divide by the sum of the above calculated part 
-  for(g in 1:ngroup){
-    for(k in 1:nclust){
-      z_gks[g,k] <- round((z_gks[g,k])/sum(z_gks[g,]),digits=16)
-    }
-  }
+  # divide by the rowwise sum of the above calculated part 
+  z_gks <- diag(1/apply(z_gks,1,sum))%*%z_gks
+  z_gks <- round(z_gks,digits=16)
+  z_gks <- diag(1/apply(z_gks,1,sum))%*%z_gks
+  
   return(z_gks)
 }
 

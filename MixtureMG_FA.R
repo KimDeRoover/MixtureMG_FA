@@ -67,22 +67,24 @@ MixtureMG_FA <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,start = 1,nrun
     nrtrialstarts=nruns*10 # generate 'nruns'*10 different random partitions
     randpartvecs=matrix(0,nrtrialstarts,ngroup);
     for (trialstart in 1:nrtrialstarts){
-      # aris=1;
-      # while (sum(aris==1)>0){
-      cl=0;
-      while(length(cl)<nclust){
-        randpartvec <- sample(1:nclust,ngroup,replace=TRUE) # generate random partition
-        cl=unique(randpartvec)
+      aris=1;
+      iterrnd=0;
+      while (sum(aris==1)>0 && iterrnd<5){
+        cl=0;
+        while(length(cl)<nclust){
+          randpartvec <- sample(1:nclust,ngroup,replace=TRUE) # generate random partition
+          cl=unique(randpartvec)
+        }
+        nstartprev=trialstart-1
+        aris=matrix(0,nstartprev,1)
+        if (nstartprev>0){
+          for (r in 1:nstartprev){
+            prevpartvec=randpartvecs[r,]
+            aris[r]<-adjrandindex(prevpartvec,randpartvec)
+          }
+          iterrnd=iterrnd+1;
+        }
       }
-      # nstartprev=trialstart-1
-      # aris=matrix(0,nstartprev,1)
-      # if (nstartprev>0){
-      #   for (r in 1:nstartprev){
-      #     prevpartvec=randpartvecs[r,]
-      #     aris[r]<-adjrandindex(prevpartvec,randpartvec)
-      #   }
-      # }
-      # }
       randpartvecs[trialstart,]=randpartvec
     }
     ODLLs_trialstarts=rep(0,nrtrialstarts,1)
@@ -481,6 +483,7 @@ MixtureMG_FA <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,start = 1,nrun
     if(ODLL-prev_ODLL<0){
       ODLL-prev_ODLL
     }
+    bestloglik=ODLL
     
     
   } # end while-loop till convergence
@@ -521,7 +524,7 @@ MixtureMG_FA <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,start = 1,nrun
   
   nrpars=nclust-1+(nvar*nfactors-(nfactors*(nfactors-1)*(1/2)))*nclust+(nfactors*(nfactors+1)/2)*(ngroup-nclust)+nvar*ngroup*2;
   
-  output_list <- list(z_gks=z_gks,pi_ks=pi_ks,Lambda_ks=Lambda_ks,Psi_gs=Psi_gs,Phi_gks=Phi_gks,mu_gs=mu_gs,bestloglik=ODLL,logliks=logliks,nrpars=nrpars,convergence=convergence)#heywood)
+  output_list <- list(z_gks=z_gks,pi_ks=pi_ks,Lambda_ks=Lambda_ks,Psi_gs=Psi_gs,Phi_gks=Phi_gks,mu_gs=mu_gs,bestloglik=bestloglik,logliks=logliks,nrpars=nrpars,convergence=convergence)#heywood)
   
   return(output_list)
 } # end main function

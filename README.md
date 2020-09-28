@@ -1,6 +1,6 @@
 # MixtureMG_FA: R-code for mixture multigroup factor analysis
 
-For now, please cite preprint: https://psyarxiv.com/7fdwv
+Please cite https://www.researchgate.net/publication/343392110_Mixture_multigroup_factor_analysis_for_unraveling_factor_loading_non-invariance_across_many_groups
 
 This version deals with factor loading differences (finds clusters of groups based on similarity of their factor loadings, given the user-specified number of clusters) and uses EFA
 

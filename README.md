@@ -4,7 +4,7 @@ Please cite https://www.researchgate.net/publication/343392110_Mixture_multigrou
 
 This version deals with factor loading differences (finds clusters of groups based on similarity of their factor loadings, given the user-specified number of clusters) and uses EFA
 
-For model selection, it is advised to use BIC_G (number of groups as sample size) in combination with CHull (see preprint, https://www.rdocumentation.org/packages/multichull/versions/1.0.0)
+For model selection, it is advised to use BIC_G (number of groups as sample size) in combination with CHull (see paper, https://www.rdocumentation.org/packages/multichull/versions/1.0.0)
 
 # INPUT:
 Xsup = data matrix for all groups (rows are subjects nested within groups, columns are the variables to be factor-analyzed)

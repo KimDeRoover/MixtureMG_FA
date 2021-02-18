@@ -323,6 +323,9 @@ MixtureMG_FA_loadings <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,start
       
       Output_Mstep <- MixtureMG_FA_Mstep(S_gs,N_gs,nvar,nclust,nfactors,N_gks,Beta_gks,Theta_gks,Lambda_ks,Psi_gs,Phi_gks)
       Lambda_ks=Output_Mstep$Lambda_ks
+      if (is.na(mean(Lambda_ks[[2]]))){
+        print(iter)
+      }
       Psi_gs=Output_Mstep$Psi_gs
       Phi_gks=Output_Mstep$Phi_gks
       Sigma_gks=Output_Mstep$Sigma_gks
@@ -516,16 +519,19 @@ MixtureMG_FA_loadings <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,start
           theta_k=theta_k+(N_gks[g,k]/N_ks[k])*theta_gk;
         }
       }
-      invsqrtheta_k=Re(solve(theta_k)^(1/2))
+      # find matrix square root via eigenvalue decomposition
+      ed=eigen(theta_k)
+      sqrtheta_k=ed$vectors%*%diag(ed$values)^(1/2)%*%solve(ed$vectors)
+      invsqrtheta_k=solve(sqrtheta_k)
       for(g in 1:ngroup){
         phi_gk=Phi_gks[[g,k]]
         phi_gk=invsqrtheta_k%*%phi_gk%*%invsqrtheta_k; # rescale to satisfy restriction on phi_k=sum((N_ik/N_i)*phi_ik)=I
         Phi_gks[[g,k]]=((phi_gk+t(phi_gk))/2); # enforce perfect symmetry
       }
-      Lambda_ks[[k]]=Lambda_ks[[k]]%*%Re(theta_k^(1/2)) # compensate for (re)scaling of factors per clusters in the loadings
+      Lambda_ks[[k]]=Lambda_ks[[k]]%*%sqrtheta_k # compensate for (re)scaling of factors per clusters in the loadings
     }
   }
-  
+
   
   nrpars=nclust-1+(nvar*nfactors-(nfactors*(nfactors-1)*(1/2)))*nclust+(nfactors*(nfactors+1)/2)*(ngroup-nclust)+nvar*ngroup*2;
   

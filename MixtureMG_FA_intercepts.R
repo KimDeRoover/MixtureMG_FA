@@ -745,8 +745,10 @@ MixtureMG_FA_intercepts <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,sta
     theta=theta+(N_gs[g]/N)*theta_g;
   }
   if(EFA==1){
-    invsqrtFscale=Re(solve(theta)^(1/2))
-    sqrtFscale=Re(theta^(1/2))
+    # find matrix square root via eigenvalue decomposition
+    ed=eigen(theta)
+    sqrtFscale=ed$vectors%*%diag(ed$values)^(1/2)%*%solve(ed$vectors)
+    invsqrtFscale=solve(sqrtFscale)
   }
   else {
     invsqrtFscale=diag(diag((1/theta)^(1/2)))

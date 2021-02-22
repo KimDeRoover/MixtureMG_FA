@@ -1,8 +1,8 @@
 # Mixture multigroup factor analysis
 # code written by Kim De Roover
-# for now, please cite preprint: https://psyarxiv.com/7fdwv
+# please cite publication: https://doi.apa.org/doi/10.1037/met0000355
 # this version deals with factor loading differences (finds clusters of groups based on similarity of their factor loadings, given the user-specified number of clusters)
-# for model selection, it is advised to use BIC_G (number of groups as sample size) in combination with CHull (see preprint)
+# for model selection, it is advised to use BIC_G (number of groups as sample size) in combination with CHull (see paper)
 
 # INPUT:
 # Xsup = data matrix for all groups (rows are subjects nested within groups, columns are the variables to be factor-analyzed)
@@ -60,7 +60,8 @@ MixtureMG_FA_loadings <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,start
   # compute sample covariance matrices
   S_gs <- matrix(list(NA),nrow = ngroup, ncol = 1)
   for(g in 1:ngroup){
-    S_gs[[g]] <- (1/N_gs[g])*(t(Xsup[Ncum[g,1]:Ncum[g,2],])%*%Xsup[Ncum[g,1]:Ncum[g,2],])
+    X_g=Xsup[Ncum[g,1]:Ncum[g,2],]
+    S_gs[[g]] <- (1/N_gs[g])*(t(X_g)%*%X_g)
   }
   
   if(start==1){
@@ -131,17 +132,19 @@ MixtureMG_FA_loadings <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,start
       invSigma_gks <- matrix(list(NA), nrow = ngroup, ncol = nclust)
       for(k in 1:nclust){
         lambda_k=Lambda_ks[[k]]
+        tlambda_k=t(lambda_k)
         for(g in 1:ngroup){
           psi_g=Psi_gs[[g]]
           invPsi_g=diag(1/diag(psi_g))
           phi_gk=Phi_gks[[g,k]]
           invPhi_gk=phi_gk #solve(phi_gk) phi_gk is still identity matrix
-          sigma_gk=lambda_k %*% phi_gk %*% t(lambda_k) + psi_g
+          sigma_gk=lambda_k %*% phi_gk %*% tlambda_k + psi_g
           Sigma_gks[[g,k]]=(sigma_gk+t(sigma_gk))*(1/2) # avoid asymmetry due to rounding errors
           #EV <- eigen((invPhi_gk+t(lambda_k)%*%invPsi_g%*%lambda_k), only.values=TRUE, symmetric = TRUE)
           #print(EV)
-          invPhi_gk_tlambda_kinvPsi_g_lambda_K=((invPhi_gk+t(lambda_k)%*%invPsi_g%*%lambda_k)+t(invPhi_gk+t(lambda_k)%*%invPsi_g%*%lambda_k))*(1/2)
-          invSigma_gks[[g,k]]=invPsi_g-invPsi_g%*%lambda_k%*%solve(invPhi_gk_tlambda_kinvPsi_g_lambda_K)%*%t(lambda_k)%*%invPsi_g; # Woodbury identity
+          invPhi_gk_tlambda_kinvPsi_g_lambda_k=(invPhi_gk+tlambda_k%*%invPsi_g%*%lambda_k)
+          invPhi_gk_tlambda_kinvPsi_g_lambda_k=(invPhi_gk_tlambda_kinvPsi_g_lambda_k+t(invPhi_gk_tlambda_kinvPsi_g_lambda_k))*(1/2)
+          invSigma_gks[[g,k]]=invPsi_g-invPsi_g%*%lambda_k%*%solve(invPhi_gk_tlambda_kinvPsi_g_lambda_k,tlambda_k)%*%invPsi_g; # Woodbury identity
         }
       }
       
@@ -180,9 +183,10 @@ MixtureMG_FA_loadings <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,start
         tX_g=t(X_g)
         for(k in 1:nclust){
           logdet_sigma_gk=log(det(Sigma_gks[[g,k]]))
+          invSigma_gk=invSigma_gks[[g,k]]
           loglik_gks[g,k]=-(1/2)*(N_gs[g]*(nvar*log(2*pi)+logdet_sigma_gk))
           for (n in 1:N_gs[g]){
-            loglik_gks[g,k]=loglik_gks[g,k]-(1/2)*(X_g[n,]%*%invSigma_gks[[g,k]]%*%tX_g[,n])
+            loglik_gks[g,k]=loglik_gks[g,k]-(1/2)*(X_g[n,]%*%invSigma_gk%*%tX_g[,n])
           }
           loglik_gksw[g,k]=log(pi_ks[k])+loglik_gks[g,k]
         }
@@ -256,15 +260,17 @@ MixtureMG_FA_loadings <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,start
     invSigma_gks <- matrix(list(NA), nrow = ngroup, ncol = nclust)
     for(k in 1:nclust){
       lambda_k=Lambda_ks[[k]]
+      tlambda_k=t(lambda_k)
       for(g in 1:ngroup){
         psi_g=Psi_gs[[g]]
         invPsi_g=diag(1/diag(psi_g))
         phi_gk=Phi_gks[[g,k]]
         invPhi_gk=solve(phi_gk)
-        sigma_gk=lambda_k %*% phi_gk %*% t(lambda_k) + psi_g
+        sigma_gk=lambda_k %*% phi_gk %*% tlambda_k + psi_g
         Sigma_gks[[g,k]]=(sigma_gk+t(sigma_gk))*(1/2) # avoid asymmetry due to rounding errors
-        invPhi_gk_tlambda_kinvPsi_g_lambda_K=((invPhi_gk+t(lambda_k)%*%invPsi_g%*%lambda_k)+t(invPhi_gk+t(lambda_k)%*%invPsi_g%*%lambda_k))*(1/2)
-        invSigma_gks[[g,k]]=invPsi_g-invPsi_g%*%lambda_k%*%solve(invPhi_gk_tlambda_kinvPsi_g_lambda_K)%*%t(lambda_k)%*%invPsi_g; # Woodbury identity
+        invPhi_gk_tlambda_kinvPsi_g_lambda_k=(invPhi_gk+tlambda_k%*%invPsi_g%*%lambda_k)
+        invPhi_gk_tlambda_kinvPsi_g_lambda_k=(invPhi_gk_tlambda_kinvPsi_g_lambda_k+t(invPhi_gk_tlambda_kinvPsi_g_lambda_k))*(1/2)
+        invSigma_gks[[g,k]]=invPsi_g-invPsi_g%*%lambda_k%*%solve(invPhi_gk_tlambda_kinvPsi_g_lambda_k,tlambda_k)%*%invPsi_g; # Woodbury identity
       }
     }
     
@@ -275,9 +281,10 @@ MixtureMG_FA_loadings <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,start
       tX_g=t(X_g)
       for(k in 1:nclust){
         logdet_sigma_gk=log(det(Sigma_gks[[g,k]]))
+        invSigma_gk=invSigma_gks[[g,k]]
         loglik_gks[g,k]=-(1/2)*(N_gs[g]*(nvar*log(2*pi)+logdet_sigma_gk))
         for (n in 1:N_gs[g]){
-          loglik_gks[g,k]=loglik_gks[g,k]-(1/2)*(X_g[n,]%*%invSigma_gks[[g,k]]%*%tX_g[,n])
+          loglik_gks[g,k]=loglik_gks[g,k]-(1/2)*(X_g[n,]%*%invSigma_gk%*%tX_g[,n])
         }
       }
     }
@@ -323,9 +330,6 @@ MixtureMG_FA_loadings <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,start
       
       Output_Mstep <- MixtureMG_FA_Mstep(S_gs,N_gs,nvar,nclust,nfactors,N_gks,Beta_gks,Theta_gks,Lambda_ks,Psi_gs,Phi_gks)
       Lambda_ks=Output_Mstep$Lambda_ks
-      if (is.na(mean(Lambda_ks[[2]]))){
-        print(iter)
-      }
       Psi_gs=Output_Mstep$Psi_gs
       Phi_gks=Output_Mstep$Phi_gks
       Sigma_gks=Output_Mstep$Sigma_gks
@@ -341,9 +345,10 @@ MixtureMG_FA_loadings <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,start
         tX_g=t(X_g)
         for(k in 1:nclust){
           logdet_sigma_gk=log(det(Sigma_gks[[g,k]]))
+          invSigma_gk=invSigma_gks[[g,k]]
           loglik_gks[g,k]=-(1/2)*(N_gs[g]*(nvar*log(2*pi)+logdet_sigma_gk))
           for (n in 1:N_gs[g]){
-            loglik_gks[g,k]=loglik_gks[g,k]-(1/2)*(X_g[n,]%*%invSigma_gks[[g,k]]%*%tX_g[,n])
+            loglik_gks[g,k]=loglik_gks[g,k]-(1/2)*(X_g[n,]%*%invSigma_gk%*%tX_g[,n])
           }
           loglik_gksw[g,k]=log(pi_ks[k])+loglik_gks[g,k]
         }
@@ -468,9 +473,10 @@ MixtureMG_FA_loadings <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,start
       tX_g=t(X_g)
       for(k in 1:nclust){
         logdet_sigma_gk=log(det(Sigma_gks[[g,k]]))
+        invSigma_gk=invSigma_gks[[g,k]]
         loglik_gks[g,k]=-(1/2)*(N_gs[g]*(nvar*log(2*pi)+logdet_sigma_gk))
         for (n in 1:N_gs[g]){
-          loglik_gks[g,k]=loglik_gks[g,k]-(1/2)*(X_g[n,]%*%invSigma_gks[[g,k]]%*%tX_g[,n])
+          loglik_gks[g,k]=loglik_gks[g,k]-(1/2)*(X_g[n,]%*%invSigma_gk%*%tX_g[,n])
         }
         loglik_gksw[g,k]=log(pi_ks[k])+loglik_gks[g,k]
       }
@@ -618,15 +624,13 @@ MixtureMG_FA_Mstep <- function(S_gs,N_gs,nvar,nclust,nfactors,N_gks,Beta_gks,The
   
   for(k in 1:nclust){
     if(N_ks[k]>1e-8){
-      theta_k=matrix(0,nfactors,nfactors)
-      for(g in 1:ngroup){
-        if(N_gks[g,k]>0){
-          theta_gk=Theta_gks[[g,k]]
-          theta_k=theta_k+(N_gks[g,k]/N_ks[k])*theta_gk;
-        }
-      }
-      EV <- eigen(theta_k, symmetric = TRUE)
-      #invsqrtheta_k <- (tcrossprod(EV$vectors / rep(EV$values, each = length(EV$values)), EV$vectors))^(1/2)
+      # theta_k=matrix(0,nfactors,nfactors)
+      # for(g in 1:ngroup){
+      #   if(N_gks[g,k]>0){
+      #     theta_gk=Theta_gks[[g,k]]
+      #     theta_k=theta_k+(N_gks[g,k]/N_ks[k])*theta_gk;
+      #   }
+      # }
       #invsqrtheta_k=Re(solve(theta_k)^(1/2))
       for(g in 1:ngroup){
         theta_gk=Theta_gks[[g,k]]
@@ -641,15 +645,17 @@ MixtureMG_FA_Mstep <- function(S_gs,N_gs,nvar,nclust,nfactors,N_gks,Beta_gks,The
   invSigma_gks <- matrix(list(NA), nrow = ngroup, ncol = nclust)
   for(k in 1:nclust){
     lambda_k=Lambda_ks[[k]]
+    tlambda_k=t(lambda_k)
     for(g in 1:ngroup){
       psi_g=Psi_gs[[g]]
       invPsi_g=diag(1/diag(psi_g))
       phi_gk=Phi_gks[[g,k]]
       invPhi_gk=solve(phi_gk)
-      sigma_gk=lambda_k %*% phi_gk %*% t(lambda_k) + psi_g
+      sigma_gk=lambda_k %*% phi_gk %*% tlambda_k + psi_g
       Sigma_gks[[g,k]]=(sigma_gk+t(sigma_gk))*(1/2) # avoid asymmetry due to rounding errors
-      invPhi_gk_tlambda_kinvPsi_g_lambda_K=((invPhi_gk+t(lambda_k)%*%invPsi_g%*%lambda_k)+t(invPhi_gk+t(lambda_k)%*%invPsi_g%*%lambda_k))*(1/2)
-      invSigma_gks[[g,k]]=invPsi_g-invPsi_g%*%lambda_k%*%solve(invPhi_gk_tlambda_kinvPsi_g_lambda_K)%*%t(lambda_k)%*%invPsi_g; # Woodbury identity
+      invPhi_gk_tlambda_kinvPsi_g_lambda_k=(invPhi_gk+tlambda_k%*%invPsi_g%*%lambda_k)
+      invPhi_gk_tlambda_kinvPsi_g_lambda_k=(invPhi_gk_tlambda_kinvPsi_g_lambda_k+t(invPhi_gk_tlambda_kinvPsi_g_lambda_k))*(1/2)
+      invSigma_gks[[g,k]]=invPsi_g-invPsi_g%*%lambda_k%*%solve(invPhi_gk_tlambda_kinvPsi_g_lambda_k,tlambda_k)%*%invPsi_g; # Woodbury identity
     }
   }
   

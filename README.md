@@ -10,7 +10,7 @@ For model selection, it is advised to use BIC_G (number of groups as sample size
 
 # MixtureMG_FA_intercepts: For finding clusters of groups with scalar invariance
 
-Please cite https://psyarxiv.com/5yr68
+Please cite https://www.tandfonline.com/doi/full/10.1080/10705511.2020.1866577
 
 This version deals with intercept differences (i.e., finds clusters of groups based on similarity of their intercepts, given the user-specified number of clusters) and can be used with EFA as well as CFA. It builds on invariance of the loadings. Deal with loading non-invariances as described in the Discussion of the paper on the metric invariance variant.
 

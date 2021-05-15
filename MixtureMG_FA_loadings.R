@@ -1,7 +1,7 @@
 # Mixture multigroup factor analysis
-# code written by Kim De Roover
-# please cite publication: https://doi.apa.org/doi/10.1037/met0000355
-# this version deals with factor loading differences (finds clusters of groups based on similarity of their factor loadings, given the user-specified number of clusters)
+# Code written by Kim De Roover
+# Please cite publication: https://doi.apa.org/doi/10.1037/met0000355
+# This version deals with factor loading differences (finds clusters of groups based on similarity of their factor loadings, given the user-specified number of clusters)
 # for model selection, it is advised to use BIC_G (number of groups as sample size) in combination with CHull (see paper)
 
 # INPUT:
@@ -11,6 +11,7 @@
 # nfactors = user-specified number of factors
 # Maxiter = maximum number of iterations
 # nruns = number of starts (based on pre-selected random partitions when start = 1)
+# preselect = percentage of best starts taken in pre-selection (increase to speed up startprocedure)
 # startpartition = partition of groups to start from (use with start = 2 and nruns = 1)
 
 # OUTPUT:
@@ -25,7 +26,7 @@
 # nrpars = number of free parameters, to be used for model selection in combination with bestloglik
 # convergence = 2 if converged on loglikelihood, 1 if converged on parameter changes, 0 if not converged
 
-MixtureMG_FA_loadings <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,start = 1,nruns = 50,startpartition){
+MixtureMG_FA_loadings <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,start = 1,nruns = 50,preselect = 10,startpartition){
   
   Xsup=as.matrix(Xsup)
   ngroup <- length(N_gs)
@@ -66,7 +67,7 @@ MixtureMG_FA_loadings <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,start
   
   if(start==1){
     # pre-selection of random partitions
-    nrtrialstarts=nruns*10 # generate 'nruns'*10 different random partitions
+    nrtrialstarts=nruns*(100/preselect) # generate 'nruns'*(100/preselect) different random partitions
     randpartvecs=matrix(0,nrtrialstarts,ngroup);
     for (trialstart in 1:nrtrialstarts){
       aris=1;
@@ -90,7 +91,7 @@ MixtureMG_FA_loadings <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,start
       randpartvecs[trialstart,]=randpartvec
     }
     ODLLs_trialstarts=rep(0,nrtrialstarts,1)
-    for (trialstart in 1:nrtrialstarts){ # select 10% best fitting random partitions
+    for (trialstart in 1:nrtrialstarts){ # select 'preselect'% (default 10%) best fitting random partitions
       randpartvec=randpartvecs[trialstart,];
       z_gks=IM[randpartvec,]
       pi_ks=(1/ngroup)*apply(z_gks,2,sum)
@@ -100,11 +101,11 @@ MixtureMG_FA_loadings <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,start
       Lambda_ks <- matrix(list(NA),nrow = 1, ncol=nclust)
       uniq_ks <- matrix(0,nclust,nvar)
       for(k in 1:nclust){
-        Xsup_k=vector();
+        Xsup_k=matrix(0,N_ks[k],nvar)
         for(g in 1:ngroup){
           if(randpartvec[g]==k){
             X=Xsup[Ncum[g,1]:Ncum[g,2],]
-            Xsup_k=rbind(Xsup_k,X)
+            Xsup_k[sum(N_gks[1:g-1,k])+1:sum(N_gks[1:g,k]),]=X
           }
         }
         S_k <- (1/sum(N_gs[randpartvec==k]))*(t(Xsup_k)%*%Xsup_k)

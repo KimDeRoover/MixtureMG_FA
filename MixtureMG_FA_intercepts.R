@@ -4,7 +4,7 @@
 # This version builds on metric invariance across all groups and deals with intercept differences 
 # (finds clusters of groups based on similarity of their intercepts, given the user-specified number of clusters)
 # For model selection, it is advised to use BIC_G (number of groups as sample size) in combination with CHull (see preprint)
-# For now, please cite preprint: https://psyarxiv.com/5yr68
+# Please cite publication: https://www.tandfonline.com/doi/full/10.1080/10705511.2020.1866577
 
 # INPUT:
 # Xsup = data matrix for all groups (rows are subjects nested within groups, columns are the variables to be factor-analyzed)
@@ -13,6 +13,7 @@
 # nfactors = user-specified number of factors
 # Maxiter = maximum number of iterations
 # nruns = number of starts (based on pre-selected random partitions when start = 1)
+# preselect = percentage of best starts taken in pre-selection (increase to speed up startprocedure)
 # design = matrix indicating position of zero loadings with '0' and non-zero loadings with '1' (for CFA, leave unspecified for EFA)
 # startpartition = partition of groups to start from (use with start = 2 and nruns = 1)
 
@@ -29,7 +30,7 @@
 # nrpars = number of free parameters, to be used for model selection in combination with bestloglik
 # convergence = 2 if converged on loglikelihood, 1 if converged on parameter changes, 0 if not converged
 
-MixtureMG_FA_intercepts <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,start = 1,nruns = 50,design = 0,startpartition){
+MixtureMG_FA_intercepts <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,start = 1,nruns = 50,design = 0,preselect = 10,startpartition){
   
   Xsup=as.matrix(Xsup)
   ngroup <- length(N_gs)
@@ -69,7 +70,7 @@ MixtureMG_FA_intercepts <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,sta
   
   if(start==1){
     # pre-selection of random partitions
-    nrtrialstarts=nruns*10 # generate 'nruns'*10 different random partitions
+    nrtrialstarts=nruns*(100/preselect) # generate 'nruns'*(100/preselect) different random partitions
     randpartvecs=matrix(0,nrtrialstarts,ngroup);
     for (trialstart in 1:nrtrialstarts){
       aris=1;
@@ -93,7 +94,7 @@ MixtureMG_FA_intercepts <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,sta
       randpartvecs[trialstart,]=randpartvec
     }
     ODLLs_trialstarts=rep(0,nrtrialstarts,1)
-    for (trialstart in 1:nrtrialstarts){ # select 10% best fitting random partitions
+    for (trialstart in 1:nrtrialstarts){ # select 'preselect'% (default 10%) best fitting random partitions
       randpartvec=randpartvecs[trialstart,];
       z_gks=IM[randpartvec,]
       pi_ks=(1/ngroup)*apply(z_gks,2,sum)
@@ -102,11 +103,11 @@ MixtureMG_FA_intercepts <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,sta
       
       tau_ks <- matrix(0,nclust,nvar)
       for(k in 1:nclust){
-        Xsup_k=vector();
+        Xsup_k=matrix(0,N_ks[k],nvar)
         for(g in 1:ngroup){
           if(randpartvec[g]==k){
             X=Xsup[Ncum[g,1]:Ncum[g,2],]
-            Xsup_k=rbind(Xsup_k,X)
+            Xsup_k[sum(N_gks[1:g-1,k])+1:sum(N_gks[1:g,k]),]=X
           }
         }
         tau_ks[k,] <- apply(Xsup_k,2,mean)
@@ -511,7 +512,6 @@ MixtureMG_FA_intercepts <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,sta
       
       
     } # end while-loop till convergence
-    # hier parameters beste start tot nu toe bijhouden
     logliks[run,]=c(ODLL,heywood);
     if (run==1) {
       bestz_gks=z_gks

@@ -70,7 +70,7 @@ MixtureMG_FA_intercepts <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,sta
   
   if(start==1){
     # pre-selection of random partitions
-    nrtrialstarts=nruns*(100/preselect) # generate 'nruns'*(100/preselect) different random partitions
+    nrtrialstarts=nruns*round(100/preselect) # generate 'nruns'*(100/preselect) different random partitions
     randpartvecs=matrix(0,nrtrialstarts,ngroup);
     for (trialstart in 1:nrtrialstarts){
       aris=1;

@@ -105,7 +105,7 @@ MixtureMG_FA_loadings <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,start
         for(g in 1:ngroup){
           if(randpartvec[g]==k){
             X=Xsup[Ncum[g,1]:Ncum[g,2],]
-            Xsup_k[sum(N_gks[1:g-1,k])+1:sum(N_gks[1:g,k]),]=X
+            Xsup_k[(sum(N_gks[1:g-1,k])+1):sum(N_gks[1:g,k]),]=X
           }
         }
         S_k <- (1/sum(N_gs[randpartvec==k]))*(t(Xsup_k)%*%Xsup_k)

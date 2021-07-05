@@ -12,6 +12,8 @@
 # Maxiter = maximum number of iterations
 # nruns = number of starts (based on pre-selected random partitions when start = 1)
 # preselect = percentage of best starts taken in pre-selection (increase to speed up startprocedure)
+# design = matrix indicating position of zero loadings with '0' and non-zero loadings with '1' (for CFA, leave unspecified for EFA)
+#          (using different design matrices for different clusters is currently not supported)
 # startpartition = partition of groups to start from (use with start = 2 and nruns = 1)
 
 # OUTPUT:
@@ -25,8 +27,9 @@
 # logliks = loglikelihoods of all starts
 # nrpars = number of free parameters, to be used for model selection in combination with bestloglik
 # convergence = 2 if converged on loglikelihood, 1 if converged on parameter changes, 0 if not converged
+# nractivatedconstraints = number of constraints on the unique variances (across groups) to avoid unique variances approaching zero
 
-MixtureMG_FA_loadings <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,start = 1,nruns = 50,preselect = 10,startpartition){
+MixtureMG_FA_loadings <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,start = 1,nruns = 50,design=0,preselect = 10,startpartition){
   
   Xsup=as.matrix(Xsup)
   ngroup <- length(N_gs)
@@ -47,6 +50,14 @@ MixtureMG_FA_loadings <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,start
     Ncum[g,1]=sum(N_gs[1:(g-1)])+1 # Ncum[g,1]: first row in Xsup for group g
     Ncum[g,2]=sum(N_gs[1:g]) # Ncum[g,2]: last row in Xsup for group g
   }
+  
+  if (sum(design)==0){ # if design is unspecified, EFA is used
+    design=matrix(1,nvar,nfactors)
+    EFA=1
+  } else {
+    EFA=0
+  }
+  
   
   # compute group-specific means, work with group-centered data from now on
   mu_gs=matrix(0,ngroup,nvar)
@@ -123,6 +134,10 @@ MixtureMG_FA_loadings <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,start
           meanerror=totalerror/(nvar-nfactors) # mean error variance: mean variance in discarded dimensions
           Uniq=rep(meanerror,nvar)
           lambda_k=u[,seq_len(nfactors),drop=FALSE] %*% sqrt(diag(val[seq_len(nfactors)]-Uniq[seq_len(nfactors)],nrow=nfactors,ncol=nfactors))
+          if (EFA==0){
+            lambda_k <- procr(lambda_k,design)
+            lambda_k=lambda_k*design # non-zero loadings should be indicated with '1' for this to work properly
+          }
           Lambda_ks[[k]]=lambda_k
           uniq_ks[k,]=Uniq
         }
@@ -173,13 +188,13 @@ MixtureMG_FA_loadings <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,start
         }
         
         
-        Output_Mstep <- MixtureMG_FA_Mstep(S_gs,N_gs,nvar,nclust,nfactors,N_gks,Beta_gks,Theta_gks,Lambda_ks,Psi_gs,Phi_gks)
+        Output_Mstep <- MixtureMG_FA_Mstep(S_gs,N_gs,nvar,nclust,nfactors,design,N_gks,Beta_gks,Theta_gks,Lambda_ks,Psi_gs,Phi_gks)
         Lambda_ks=Output_Mstep$Lambda_ks
         Psi_gs=Output_Mstep$Psi_gs
         Phi_gks=Output_Mstep$Phi_gks
         Sigma_gks=Output_Mstep$Sigma_gks
         invSigma_gks=Output_Mstep$invSigma_gks
-        heywood=Output_Mstep$heywood
+        nractivatedconstraints=Output_Mstep$nractivatedconstrains
         
         
         # compute observed-data log-likelihood for start
@@ -192,11 +207,12 @@ MixtureMG_FA_loadings <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,start
           for(k in 1:nclust){
             logdet_sigma_gk=log(det(Sigma_gks[[g,k]]))
             invSigma_gk=invSigma_gks[[g,k]]
-            loglik_gks[g,k]=-(1/2)*(N_gs[g]*(nvar*log(2*pi)+logdet_sigma_gk))
+            loglik_gk=-(1/2)*(N_gs[g]*(nvar*log(2*pi)+logdet_sigma_gk))
             for (n in 1:N_gs[g]){
-              loglik_gks[g,k]=loglik_gks[g,k]-(1/2)*(X_g[n,]%*%invSigma_gk%*%tX_g[,n])
+              loglik_gk=loglik_gk-(1/2)*(X_g[n,]%*%invSigma_gk%*%tX_g[,n])
             }
-            loglik_gksw[g,k]=log(pi_ks[k])+loglik_gks[g,k]
+            loglik_gks[g,k]=loglik_gk
+            loglik_gksw[g,k]=log(pi_ks[k])+loglik_gk
           }
           m_i=max(loglik_gksw[g,]);
           for(k in 1:nclust){
@@ -228,7 +244,7 @@ MixtureMG_FA_loadings <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,start
   convergence <- 1
   logliks <- matrix(0,nruns,2)
   for(run in 1:nruns){
-    heywood <- 0
+    nractivatedconstraints <- 0
     if(start==1){
       if(nruns>1){
         randpartvec <- randpartvecs[run,]
@@ -319,14 +335,23 @@ MixtureMG_FA_loadings <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,start
     conv1=1;
     conv2=1;
     ODLL=-Inf;
-    pars=c(Lambda_ks,lapply(Psi_gs,diag),Phi_gks);
+    for(k in 1:nclust){
+      lambda_k=Lambda_ks[[k]]
+      if (k==1){
+        pars=lambda_k[design==1]
+      }
+      else {
+        pars=c(pars,lambda_k[design==1])
+      }
+    }
+    pars=c(pars,lapply(Psi_gs,diag),Phi_gks)
     while(min(conv1,conv2)>1e-4 && iter<101){
       prev_ODLL=ODLL;
       prev_Lambda_ks=Lambda_ks;
       prev_Psi_gs=Psi_gs;
       prev_Phi_gks=Phi_gks;
       prev_pars=pars;
-      iter=iter+1;
+      iter=iter+1
       
       # **E-step**: compute the posterior classification probabilities
       z_gks <- UpdPostProb(pi_ks, loglik_gks, ngroup, nclust, nfactors)
@@ -354,13 +379,13 @@ MixtureMG_FA_loadings <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,start
         }
       }
       
-      Output_Mstep <- MixtureMG_FA_Mstep(S_gs,N_gs,nvar,nclust,nfactors,N_gks,Beta_gks,Theta_gks,Lambda_ks,Psi_gs,Phi_gks)
+      Output_Mstep <- MixtureMG_FA_Mstep(S_gs,N_gs,nvar,nclust,nfactors,design,N_gks,Beta_gks,Theta_gks,Lambda_ks,Psi_gs,Phi_gks)
       Lambda_ks=Output_Mstep$Lambda_ks
       Psi_gs=Output_Mstep$Psi_gs
       Phi_gks=Output_Mstep$Phi_gks
       Sigma_gks=Output_Mstep$Sigma_gks
       invSigma_gks=Output_Mstep$invSigma_gks
-      heywood=Output_Mstep$heywood
+      nractivatedconstraints=Output_Mstep$nractivatedconstraints
       
       # check on change in observed-data log-likelihood
       ODLL=0;
@@ -385,7 +410,16 @@ MixtureMG_FA_loadings <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,start
         ODLL=ODLL+log(sum(loglik_gksw[g,]))+m_i;
       }
       
-      pars=c(Lambda_ks,lapply(Psi_gs,diag),Phi_gks);
+      for(k in 1:nclust){
+        lambda_k=Lambda_ks[[k]]
+        if (k==1){
+          pars=lambda_k[design==1]
+        }
+        else {
+          pars=c(pars,lambda_k[design==1])
+        }
+      }
+      pars=c(pars,lapply(Psi_gs,diag),Phi_gks);
       parsdiff <- mapply("-",pars,prev_pars)
       parsdiffdiv <- mapply("/",parsdiff,prev_pars)
       parsabsdiffdiv <- lapply(parsdiffdiv,function(x){abs(x)})
@@ -399,7 +433,7 @@ MixtureMG_FA_loadings <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,start
       
     } # end while-loop till convergence
     # hier parameters beste start tot nu toe bijhouden
-    logliks[run,]=c(ODLL,heywood);
+    logliks[run,]=c(ODLL,nractivatedconstraints);
     if (run==1) {
       bestz_gks=z_gks
       bestpi_ks=pi_ks
@@ -447,14 +481,23 @@ MixtureMG_FA_loadings <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,start
   conv1=bestconv1
   conv2=bestconv2
   
-  pars=c(Lambda_ks,lapply(Psi_gs,diag),Phi_gks);
+  for(k in 1:nclust){
+    lambda_k=Lambda_ks[[k]]
+    if (k==1){
+      pars=lambda_k[design==1]
+    }
+    else {
+      pars=c(pars,lambda_k[design==1])
+    }
+  }
+  pars=c(pars,lapply(Psi_gs,diag),Phi_gks);
   while(min(conv1,conv2)>1e-6 && iter<Maxiter+1){ # iterate till convergence for best start
-    prev_ODLL=ODLL;
-    prev_Lambda_ks=Lambda_ks;
-    prev_Psi_gs=Psi_gs;
-    prev_Phi_gks=Phi_gks;
-    prev_pars=pars;
-    iter=iter+1;
+    prev_ODLL=ODLL
+    prev_Lambda_ks=Lambda_ks
+    prev_Psi_gs=Psi_gs
+    prev_Phi_gks=Phi_gks
+    prev_pars=pars
+    iter=iter+1
     
     # **E-step**: compute the posterior classification probabilities
     z_gks <- UpdPostProb(pi_ks, loglik_gks, ngroup, nclust, nfactors)
@@ -482,13 +525,13 @@ MixtureMG_FA_loadings <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,start
       }
     }
     
-    Output_Mstep <- MixtureMG_FA_Mstep(S_gs,N_gs,nvar,nclust,nfactors,N_gks,Beta_gks,Theta_gks,Lambda_ks,Psi_gs,Phi_gks)
+    Output_Mstep <- MixtureMG_FA_Mstep(S_gs,N_gs,nvar,nclust,nfactors,design,N_gks,Beta_gks,Theta_gks,Lambda_ks,Psi_gs,Phi_gks)
     Lambda_ks=Output_Mstep$Lambda_ks
     Psi_gs=Output_Mstep$Psi_gs
     Phi_gks=Output_Mstep$Phi_gks
     Sigma_gks=Output_Mstep$Sigma_gks
     invSigma_gks=Output_Mstep$invSigma_gks
-    heywood=Output_Mstep$heywood
+    nractivatedconstraints=Output_Mstep$nractivatedconstraints
     
     # check on change in observed-data log-likelihood
     ODLL=0;
@@ -500,11 +543,12 @@ MixtureMG_FA_loadings <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,start
       for(k in 1:nclust){
         logdet_sigma_gk=log(det(Sigma_gks[[g,k]]))
         invSigma_gk=invSigma_gks[[g,k]]
-        loglik_gks[g,k]=-(1/2)*(N_gs[g]*(nvar*log(2*pi)+logdet_sigma_gk))
+        loglik_gk=-(1/2)*(N_gs[g]*(nvar*log(2*pi)+logdet_sigma_gk))
         for (n in 1:N_gs[g]){
-          loglik_gks[g,k]=loglik_gks[g,k]-(1/2)*(X_g[n,]%*%invSigma_gk%*%tX_g[,n])
+          loglik_gk=loglik_gk-(1/2)*(X_g[n,]%*%invSigma_gk%*%tX_g[,n])
         }
-        loglik_gksw[g,k]=log(pi_ks[k])+loglik_gks[g,k]
+        loglik_gks[g,k]=loglik_gk
+        loglik_gksw[g,k]=log(pi_ks[k])+loglik_gk
       }
       m_i=max(loglik_gksw[g,]);
       for(k in 1:nclust){
@@ -513,7 +557,16 @@ MixtureMG_FA_loadings <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,start
       ODLL=ODLL+log(sum(loglik_gksw[g,]))+m_i;
     }
     
-    pars=c(Lambda_ks,lapply(Psi_gs,diag),Phi_gks);
+    for(k in 1:nclust){
+      lambda_k=Lambda_ks[[k]]
+      if (k==1){
+        pars=lambda_k[design==1]
+      }
+      else {
+        pars=c(pars,lambda_k[design==1])
+      }
+    }
+    pars=c(pars,lapply(Psi_gs,diag),Phi_gks);
     parsdiff <- mapply("-",pars,prev_pars)
     parsdiffdiv <- mapply("/",parsdiff,prev_pars)
     parsabsdiffdiv <- lapply(parsdiffdiv,function(x){abs(x)})
@@ -541,7 +594,7 @@ MixtureMG_FA_loadings <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,start
   }
   
   
-  # set scale of factors per cluster and make them orthogonal
+  # set scale of factors per cluster and, in case of EFA, make them orthogonal
   for(k in 1:nclust){
     if(N_ks[k]>1e-8){
       theta_k=matrix(0,nfactors,nfactors)
@@ -552,10 +605,16 @@ MixtureMG_FA_loadings <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,start
         }
       }
       if(nfactors>1){
-        # find matrix square root via eigenvalue decomposition
-        ed=eigen(theta_k)
-        sqrtheta_k=ed$vectors%*%diag(ed$values)^(1/2)%*%solve(ed$vectors)
-        invsqrtheta_k=solve(sqrtheta_k)
+        if(EFA==1){
+          # find matrix square root via eigenvalue decomposition
+          ed=eigen(theta_k)
+          sqrtheta_k=ed$vectors%*%diag(ed$values)^(1/2)%*%solve(ed$vectors)
+          invsqrtheta_k=solve(sqrtheta_k)
+        }
+        else {
+          sqrtheta_k=diag(diag(theta_k^(1/2)))
+          invsqrtheta_k=diag(diag((1/theta_k)^(1/2)))
+        }
       }
       else {
         sqrtheta_k=sqrt(theta_k)
@@ -571,13 +630,14 @@ MixtureMG_FA_loadings <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,start
   }
 
   
-  nrpars=nclust-1+(nvar*nfactors-(nfactors*(nfactors-1)*(1/2)))*nclust+(nfactors*(nfactors+1)/2)*(ngroup-nclust)+nvar*ngroup*2;
-  # if(heywood==1){
-  #   # subtract number of activated constraints
-  #   
-  # }
+  if(EFA==1){
+    nrpars=nclust-1+(nvar*nfactors-(nfactors*(nfactors-1)*(1/2)))*nclust+(nfactors*(nfactors+1)/2)*(ngroup-nclust)+nvar*ngroup*2-nractivatedconstraints;
+  }
+  else {
+    nrpars=nclust-1+sum(design)*nclust+(nfactors*(nfactors+1)/2)*ngroup-nclust*nfactors+nvar*ngroup*2-nractivatedconstraints;
+  }
   
-  output_list <- list(z_gks=z_gks,pi_ks=pi_ks,Lambda_ks=Lambda_ks,Psi_gs=Psi_gs,Phi_gks=Phi_gks,mu_gs=mu_gs,bestloglik=bestloglik,logliks=logliks,nrpars=nrpars,convergence=convergence)#heywood)
+  output_list <- list(z_gks=z_gks,pi_ks=pi_ks,Lambda_ks=Lambda_ks,Psi_gs=Psi_gs,Phi_gks=Phi_gks,mu_gs=mu_gs,bestloglik=bestloglik,logliks=logliks,nrpars=nrpars,convergence=convergence,nractivatedconstraints=nractivatedconstraints)
   
   return(output_list)
 } # end main function
@@ -588,7 +648,7 @@ MixtureMG_FA_loadings <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,start
 
 
 # Update the cluster-membership probabilities z_gk
-# Reuses the loglik_gks to save time
+# Reuses loglik_gks to save time
 
 UpdPostProb <- function(pi_ks, loglik_gks, ngroup, nclust, nfact){
   max_g <-rep(0,ngroup)
@@ -612,31 +672,39 @@ UpdPostProb <- function(pi_ks, loglik_gks, ngroup, nclust, nfact){
 
 
 
-MixtureMG_FA_Mstep <- function(S_gs,N_gs,nvar,nclust,nfactors,N_gks,Beta_gks,Theta_gks,Lambda_ks,Psi_gs,Phi_gks){
-  heywood <- 0
+MixtureMG_FA_Mstep <- function(S_gs,N_gs,nvar,nclust,nfactors,design,N_gks,Beta_gks,Theta_gks,Lambda_ks,Psi_gs,Phi_gks){
+  nractivatedconstraints <- 0
   ngroup <- length(N_gs)
   N_ks=apply(N_gks,2,sum)
   
+  # update cluster-specific loadings
   for(k in 1:nclust){
     if(N_ks[k]>1e-6){
       lambda_k=matrix(0,nvar,nfactors)
       for(j in 1:nvar){
-        sumSbeta_k=matrix(0,1,nfactors)
-        sumtheta_k=matrix(0,nfactors,nfactors)
+        nfactors_j=sum(design[j,])
+        d_j=design[j,]==1
+        sumSbeta_k=matrix(0,1,nfactors_j)
+        sumtheta_k=matrix(0,nfactors_j,nfactors_j)
         for(g in 1:ngroup){
           psi_g=Psi_gs[[g]]
           S_g=S_gs[[g]]
           beta_gk=Beta_gks[[g,k]]
+          beta_gk=beta_gk[d_j, ,drop=FALSE]
           theta_gk=Theta_gks[[g,k]]
+          theta_gk=theta_gk[d_j,d_j]
           sumSbeta_k=sumSbeta_k+(N_gks[g,k]/psi_g[j,j])*S_g[j,]%*%t(beta_gk)
           sumtheta_k=sumtheta_k+(N_gks[g,k]/psi_g[j,j])*theta_gk
         }
-        lambda_k[j,]= t(solve(sumtheta_k,t(sumSbeta_k)))
+        lambda_k[j,d_j]= t(solve(sumtheta_k,t(sumSbeta_k)))
       }
       Lambda_ks[[k]]=lambda_k
     }
   }
   
+ 
+  # update unique variances
+  nractivatedconstraints=0
   for(g in 1:ngroup){
     S_g=S_gs[[g]]
     sum2SbetaB_BthetaB=0;
@@ -647,17 +715,17 @@ MixtureMG_FA_Mstep <- function(S_gs,N_gs,nvar,nclust,nfactors,N_gks,Beta_gks,The
       sum2SbetaB_BthetaB=sum2SbetaB_BthetaB+(N_gks[g,k]/N_gs[g])*(2*lambda_k%*%beta_gk%*%S_g-lambda_k%*%theta_gk%*%t(lambda_k)) # modelimplied reduced covariance matrix on sample level, based on old structure matrix and sigma_gk, weighting based on new z_gks
     }
     psi_g=diag(diag(S_g-sum2SbetaB_BthetaB))
-    if (sum(diag(psi_g)<.0001)>0){ # track heywood cases
-      heywood=1
+    if (sum(diag(psi_g)<.0001)>0){ # track "heywood" cases
       ind=diag(psi_g)<.0001
       d=diag(psi_g);
       d[ind]=0.0001;
       psi_g=diag(d);
+      nractivatedconstraints=nractivatedconstraints+sum(ind)
     }
     Psi_gs[[g]]=psi_g
   }
   
-  
+  # update factor (co)variances
   for(k in 1:nclust){
     if(N_ks[k]>1e-8){
       # theta_k=matrix(0,nfactors,nfactors)
@@ -677,6 +745,7 @@ MixtureMG_FA_Mstep <- function(S_gs,N_gs,nvar,nclust,nfactors,N_gks,Beta_gks,The
     }
   }
   
+  # update (inv)Sigma_gks
   Sigma_gks <- matrix(list(NA), nrow = ngroup, ncol = nclust)
   invSigma_gks <- matrix(list(NA), nrow = ngroup, ncol = nclust)
   for(k in 1:nclust){
@@ -695,7 +764,7 @@ MixtureMG_FA_Mstep <- function(S_gs,N_gs,nvar,nclust,nfactors,N_gks,Beta_gks,The
     }
   }
   
-  output_list <- list(Lambda_ks=Lambda_ks,Psi_gs=Psi_gs,Phi_gks=Phi_gks,Sigma_gks=Sigma_gks,invSigma_gks=invSigma_gks,heywood=heywood)
+  output_list <- list(Lambda_ks=Lambda_ks,Psi_gs=Psi_gs,Phi_gks=Phi_gks,Sigma_gks=Sigma_gks,invSigma_gks=invSigma_gks,nractivatedconstraints=nractivatedconstraints)
   
   return(output_list)
 }
@@ -720,4 +789,16 @@ adjrandindex <- function(part1,part2){
   ARI = (choose(N,2)*(a + d) - ((a+b)*(a+c)+(c+d)*(b+d)))/(choose(N,2)^2 - ((a+b)*(a+c)+(c+d)*(b+d)))
   
   return(ARI)
+}
+
+# Procrustes rotation (orthogonal)
+procr <- function(x,y){
+  s <- svd(t(x)%*%y)
+  U <- s$u # X = U D V'
+  D <- s$d
+  V <- s$v
+  R <- U%*%t(V)
+  yhat <- x%*%R # rotated x that approximates y
+  
+  return(yhat)
 }

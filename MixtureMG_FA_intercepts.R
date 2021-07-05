@@ -233,14 +233,19 @@ MixtureMG_FA_intercepts <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,sta
         loglik_gksw <- matrix(0, nrow = ngroup, ncol = nclust) # weighted with mixing proportions
         for(g in 1:ngroup){
           logdet_sigma_g=log(det(Sigma_gs[[g]]))
+          invSigma_g=invSigma_gs[[g]]
+          X_g=Xsup[Ncum[g,1]:Ncum[g,2],]
+          tX_g=t(X_g)
           for(k in 1:nclust){
-            Xc_gk=Xsup[Ncum[g,1]:Ncum[g,2],]-t(matrix(tau_ks[k,]+alpha_gks[[g,k]]%*%t(Lambda),ncol=N_gs[g],nrow=nvar)) # centered data per group
-            tXc_gk=t(Xc_gk)
-            loglik_gks[g,k]=-(1/2)*(N_gs[g]*(nvar*log(2*pi)+logdet_sigma_g))
+            #Xc_gk=X_g-t(matrix(tau_ks[k,]+alpha_gks[[g,k]]%*%t(Lambda),ncol=N_gs[g],nrow=nvar)) # centered data per group
+            tXc_gk=tX_g-(matrix(tau_ks[k,]+alpha_gks[[g,k]]%*%t(Lambda),ncol=N_gs[g],nrow=nvar))
+            Xc_gk=t(tXc_gk)
+            loglik_gk=-(1/2)*(N_gs[g]*(nvar*log(2*pi)+logdet_sigma_g))
             for (n in 1:N_gs[g]){
-              loglik_gks[g,k]=loglik_gks[g,k]-(1/2)*(Xc_gk[n,]%*%invSigma_gs[[g]]%*%tXc_gk[,n])
+              loglik_gk=loglik_gk-(1/2)*(Xc_gk[n,]%*%invSigma_g%*%tXc_gk[,n])
             }
-            loglik_gksw[g,k]=log(pi_ks[k])+loglik_gks[g,k]
+            loglik_gks[g,k]=loglik_gk
+            loglik_gksw[g,k]=log(pi_ks[k])+loglik_gk
           }
           m_i=max(loglik_gksw[g,]);
           for(k in 1:nclust){
@@ -364,13 +369,16 @@ MixtureMG_FA_intercepts <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,sta
     loglik_gks <- matrix(0, nrow = ngroup, ncol = nclust);
     for(g in 1:ngroup){
       logdet_sigma_g=log(det(Sigma_gs[[g]]))
+      invSigma_g=invSigma_gs[[g]]
+      X_g=Xsup[Ncum[g,1]:Ncum[g,2],]
       for(k in 1:nclust){
-        Xc_gk=Xsup[Ncum[g,1]:Ncum[g,2],]-t(matrix(tau_ks[k,]+alpha_gks[[g,k]]%*%t(Lambda),ncol=N_gs[g],nrow=nvar)) # centered data per group
+        Xc_gk=X_g-t(matrix(tau_ks[k,]+alpha_gks[[g,k]]%*%t(Lambda),ncol=N_gs[g],nrow=nvar)) # centered data per group
         tXc_gk=t(Xc_gk)
-        loglik_gks[g,k]=-(1/2)*(N_gs[g]*(nvar*log(2*pi)+logdet_sigma_g))
+        loglik_gk=-(1/2)*(N_gs[g]*(nvar*log(2*pi)+logdet_sigma_g))
         for (n in 1:N_gs[g]){
-          loglik_gks[g,k]=loglik_gks[g,k]-(1/2)*(Xc_gk[n,]%*%invSigma_gs[[g]]%*%tXc_gk[,n])
+          loglik_gk=loglik_gk-(1/2)*(Xc_gk[n,]%*%invSigma_g%*%tXc_gk[,n])
         }
+        loglik_gks[g,k]=loglik_gk
       }
     }
     
@@ -429,13 +437,16 @@ MixtureMG_FA_intercepts <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,sta
       loglik_gks <- matrix(0, nrow = ngroup, ncol = nclust);
       for(g in 1:ngroup){
         logdet_sigma_g=log(det(Sigma_gs[[g]]))
+        invSigma_g=invSigma_gs[[g]]
+        X_g=Xsup[Ncum[g,1]:Ncum[g,2],]
         for(k in 1:nclust){
-          Xc_gk=Xsup[Ncum[g,1]:Ncum[g,2],]-t(matrix(tau_ks[k,]+alpha_gks[[g,k]]%*%t(Lambda),ncol=N_gs[g],nrow=nvar)) # centered data per group
+          Xc_gk=X_g-t(matrix(tau_ks[k,]+alpha_gks[[g,k]]%*%t(Lambda),ncol=N_gs[g],nrow=nvar)) # centered data per group
           tXc_gk=t(Xc_gk)
-          loglik_gks[g,k]=-(1/2)*(N_gs[g]*(nvar*log(2*pi)+logdet_sigma_g))
+          loglik_gk=-(1/2)*(N_gs[g]*(nvar*log(2*pi)+logdet_sigma_g))
           for (n in 1:N_gs[g]){
-            loglik_gks[g,k]=loglik_gks[g,k]-(1/2)*(Xc_gk[n,]%*%invSigma_gs[[g]]%*%tXc_gk[,n])
+            loglik_gk=loglik_gk-(1/2)*(Xc_gk[n,]%*%invSigma_g%*%tXc_gk[,n])
           }
+          loglik_gks[g,k]=loglik_gk
         }
       }
       
@@ -507,14 +518,17 @@ MixtureMG_FA_intercepts <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,sta
       loglik_gksw <- matrix(0, nrow = ngroup, ncol = nclust) # weighted with mixing proportions
       for(g in 1:ngroup){
         logdet_sigma_g=log(det(Sigma_gs[[g]]))
+        invSigma_g=invSigma_gs[[g]]
+        X_g=Xsup[Ncum[g,1]:Ncum[g,2],]
         for(k in 1:nclust){
-          Xc_gk=Xsup[Ncum[g,1]:Ncum[g,2],]-t(matrix(tau_ks[k,]+alpha_gks[[g,k]]%*%t(Lambda),ncol=N_gs[g],nrow=nvar)) # centered data per group
+          Xc_gk=X_g-t(matrix(tau_ks[k,]+alpha_gks[[g,k]]%*%t(Lambda),ncol=N_gs[g],nrow=nvar)) # centered data per group
           tXc_gk=t(Xc_gk)
-          loglik_gks[g,k]=-(1/2)*(N_gs[g]*(nvar*log(2*pi)+logdet_sigma_g))
+          loglik_gk=-(1/2)*(N_gs[g]*(nvar*log(2*pi)+logdet_sigma_g))
           for (n in 1:N_gs[g]){
-            loglik_gks[g,k]=loglik_gks[g,k]-(1/2)*(Xc_gk[n,]%*%invSigma_gs[[g]]%*%tXc_gk[,n])
+            loglik_gk=loglik_gk-(1/2)*(Xc_gk[n,]%*%invSigma_g%*%tXc_gk[,n])
           }
-          loglik_gksw[g,k]=log(pi_ks[k])+loglik_gks[g,k]
+          loglik_gks[g,k]=loglik_gk
+          loglik_gksw[g,k]=log(pi_ks[k])+loglik_gk
         }
         m_i=max(loglik_gksw[g,]);
         for(k in 1:nclust){
@@ -643,13 +657,16 @@ MixtureMG_FA_intercepts <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,sta
     loglik_gks <- matrix(0, nrow = ngroup, ncol = nclust);
     for(g in 1:ngroup){
       logdet_sigma_g=log(det(Sigma_gs[[g]]))
+      invSigma_g=invSigma_gs[[g]]
+      X_g=Xsup[Ncum[g,1]:Ncum[g,2],]
       for(k in 1:nclust){
-        Xc_gk=Xsup[Ncum[g,1]:Ncum[g,2],]-t(matrix(tau_ks[k,]+alpha_gks[[g,k]]%*%t(Lambda),ncol=N_gs[g],nrow=nvar)) # centered data per group
+        Xc_gk=X_g-t(matrix(tau_ks[k,]+alpha_gks[[g,k]]%*%t(Lambda),ncol=N_gs[g],nrow=nvar)) # centered data per group
         tXc_gk=t(Xc_gk)
-        loglik_gks[g,k]=-(1/2)*(N_gs[g]*(nvar*log(2*pi)+logdet_sigma_g))
+        loglik_gk=-(1/2)*(N_gs[g]*(nvar*log(2*pi)+logdet_sigma_g))
         for (n in 1:N_gs[g]){
-          loglik_gks[g,k]=loglik_gks[g,k]-(1/2)*(Xc_gk[n,]%*%invSigma_gs[[g]]%*%tXc_gk[,n])
+          loglik_gk=loglik_gk-(1/2)*(Xc_gk[n,]%*%invSigma_g%*%tXc_gk[,n])
         }
+        loglik_gks[g,k]=loglik_gk
       }
     }
     
@@ -720,14 +737,17 @@ MixtureMG_FA_intercepts <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,sta
     loglik_gksw <- matrix(0, nrow = ngroup, ncol = nclust) # weighted with mixing proportions
     for(g in 1:ngroup){
       logdet_sigma_g=log(det(Sigma_gs[[g]]))
+      invSigma_g=invSigma_gs[[g]]
+      X_g=Xsup[Ncum[g,1]:Ncum[g,2],]
       for(k in 1:nclust){
-        Xc_gk=Xsup[Ncum[g,1]:Ncum[g,2],]-t(matrix(tau_ks[k,]+alpha_gks[[g,k]]%*%t(Lambda),ncol=N_gs[g],nrow=nvar)) # centered data per group
+        Xc_gk=X_g-t(matrix(tau_ks[k,]+alpha_gks[[g,k]]%*%t(Lambda),ncol=N_gs[g],nrow=nvar)) # centered data per group
         tXc_gk=t(Xc_gk)
-        loglik_gks[g,k]=-(1/2)*(N_gs[g]*(nvar*log(2*pi)+logdet_sigma_g))
+        loglik_gk=-(1/2)*(N_gs[g]*(nvar*log(2*pi)+logdet_sigma_g))
         for (n in 1:N_gs[g]){
-          loglik_gks[g,k]=loglik_gks[g,k]-(1/2)*(Xc_gk[n,]%*%invSigma_gs[[g]]%*%tXc_gk[,n])
+          loglik_gk=loglik_gk-(1/2)*(Xc_gk[n,]%*%invSigma_g%*%tXc_gk[,n])
         }
-        loglik_gksw[g,k]=log(pi_ks[k])+loglik_gks[g,k]
+        loglik_gks[g,k]=loglik_gk
+        loglik_gksw[g,k]=log(pi_ks[k])+loglik_gk
       }
       m_i=max(loglik_gksw[g,]);
       for(k in 1:nclust){

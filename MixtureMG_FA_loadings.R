@@ -12,7 +12,7 @@
 # Maxiter = maximum number of iterations
 # nruns = number of starts (based on pre-selected random partitions when start = 1)
 # preselect = percentage of best starts taken in pre-selection (increase to speed up startprocedure)
-# design = matrix indicating position of zero loadings with '0' and non-zero loadings with '1' (for CFA, leave unspecified for EFA)
+# design = matrix indicating position of zero loadings with '0' and non-zero loadings with '1' (specify for CFA, leave unspecified for EFA)
 #          (using different design matrices for different clusters is currently not supported)
 # startpartition = partition of groups to start from (use with start = 2 and nruns = 1)
 
@@ -324,10 +324,11 @@ MixtureMG_FA_loadings <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,start
       for(k in 1:nclust){
         logdet_sigma_gk=log(det(Sigma_gks[[g,k]]))
         invSigma_gk=invSigma_gks[[g,k]]
-        loglik_gks[g,k]=-(1/2)*(N_gs[g]*(nvar*log(2*pi)+logdet_sigma_gk))
+        loglik_gk=-(1/2)*(N_gs[g]*(nvar*log(2*pi)+logdet_sigma_gk))
         for (n in 1:N_gs[g]){
-          loglik_gks[g,k]=loglik_gks[g,k]-(1/2)*(X_g[n,]%*%invSigma_gk%*%tX_g[,n])
+          loglik_gk=loglik_gk-(1/2)*(X_g[n,]%*%invSigma_gk%*%tX_g[,n])
         }
+        loglik_gks[g,k]=loglik_gk
       }
     }
     
@@ -397,11 +398,12 @@ MixtureMG_FA_loadings <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,start
         for(k in 1:nclust){
           logdet_sigma_gk=log(det(Sigma_gks[[g,k]]))
           invSigma_gk=invSigma_gks[[g,k]]
-          loglik_gks[g,k]=-(1/2)*(N_gs[g]*(nvar*log(2*pi)+logdet_sigma_gk))
+          loglik_gk=-(1/2)*(N_gs[g]*(nvar*log(2*pi)+logdet_sigma_gk))
           for (n in 1:N_gs[g]){
-            loglik_gks[g,k]=loglik_gks[g,k]-(1/2)*(X_g[n,]%*%invSigma_gk%*%tX_g[,n])
+            loglik_gk=loglik_gk-(1/2)*(X_g[n,]%*%invSigma_gk%*%tX_g[,n])
           }
-          loglik_gksw[g,k]=log(pi_ks[k])+loglik_gks[g,k]
+          loglik_gks[g,k]=loglik_gk
+          loglik_gksw[g,k]=log(pi_ks[k])+loglik_gk
         }
         m_i=max(loglik_gksw[g,]);
         for(k in 1:nclust){

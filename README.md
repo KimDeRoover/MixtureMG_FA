@@ -1,6 +1,6 @@
 # MixtureMG_FA: R-code for mixture multigroup factor analysis
 
-Main function for performing MMG-FA with multiple numbers of clusters and select the number of clusters. Includes factor rotation (currently, varimax and oblimin). 
+Main function for performing MMG-FA with multiple numbers of clusters and selection of the number of clusters. Includes factor rotation (currently, varimax and oblimin). 
 For instructions, see 'How to use MixtureMG_FA.pdf'.
 
 # MixtureMG_FA_loadings: For finding clusters of groups with metric invariance

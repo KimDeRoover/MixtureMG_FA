@@ -14,7 +14,7 @@
 # Maxiter = maximum number of iterations
 # nruns = number of starts (based on pre-selected random partitions when start = 1)
 # preselect = percentage of best starts taken in pre-selection (increase to speed up startprocedure)
-# design = matrix indicating position of zero loadings with '0' and non-zero loadings with '1' (for CFA, leave unspecified for EFA)
+# design = matrix indicating position of zero loadings with '0' and non-zero loadings with '1' (specify for CFA, leave unspecified for EFA)
 # startpartition = partition of groups to start from (use with start = 2 and nruns = 1)
 
 # OUTPUT:
@@ -29,6 +29,7 @@
 # logliks = loglikelihoods of all starts
 # nrpars = number of free parameters, to be used for model selection in combination with bestloglik
 # convergence = 2 if converged on loglikelihood, 1 if converged on parameter changes, 0 if not converged
+# nractivatedconstraints = number of constraints on the unique variances (across groups) to avoid unique variances approaching zero
 
 MixtureMG_FA_intercepts <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,start = 1,nruns = 50,design = 0,preselect = 10,startpartition){
   
@@ -223,7 +224,7 @@ MixtureMG_FA_intercepts <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,sta
         alpha_gks=Output_Mstep$alpha_gks
         Sigma_gs=Output_Mstep$Sigma_gs
         invSigma_gs=Output_Mstep$invSigma_gs
-        heywood=Output_Mstep$heywood
+        nractivatedconstraints=Output_Mstep$nractivatedconstraints
         
         
         # compute observed-data log-likelihood for start
@@ -271,7 +272,7 @@ MixtureMG_FA_intercepts <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,sta
   convergence <- 1
   logliks <- matrix(0,nruns,2)
   for(run in 1:nruns){
-    heywood <- 0
+    nractivatedconstraints <- 0
     if(start==1){
       if(nruns>1){
         randpartvec <- randpartvecs[run,]
@@ -497,7 +498,7 @@ MixtureMG_FA_intercepts <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,sta
       alpha_gks=Output_Mstep$alpha_gks
       Sigma_gs=Output_Mstep$Sigma_gs
       invSigma_gs=Output_Mstep$invSigma_gs
-      heywood=Output_Mstep$heywood
+      nractivatedconstraints=Output_Mstep$nractivatedconstraints
       
       
       # check on change in observed-data log-likelihood
@@ -537,7 +538,7 @@ MixtureMG_FA_intercepts <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,sta
       
       
     } # end while-loop till convergence
-    logliks[run,]=c(ODLL,heywood);
+    logliks[run,]=c(ODLL,nractivatedconstraints);
     if (run==1) {
       bestz_gks=z_gks
       bestpi_ks=pi_ks
@@ -712,7 +713,7 @@ MixtureMG_FA_intercepts <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,sta
     alpha_gks=Output_Mstep$alpha_gks
     Sigma_gs=Output_Mstep$Sigma_gs
     invSigma_gs=Output_Mstep$invSigma_gs
-    heywood=Output_Mstep$heywood
+    nractivatedconstraints=Output_Mstep$nractivatedconstraints
     
     ODLL=0;
     loglik_gks <- matrix(0, nrow = ngroup, ncol = nclust) # unweighted with mixing proportions, to be re-used for calculation posterior classification probabilities
@@ -777,8 +778,8 @@ MixtureMG_FA_intercepts <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,sta
       invsqrtFscale=solve(sqrtFscale)
     }
     else {
-      invsqrtFscale=diag(diag((1/theta)^(1/2)))
       sqrtFscale=diag(diag(theta^(1/2)))
+      invsqrtFscale=diag(diag((1/theta)^(1/2)))
     }
   }
   else {
@@ -825,14 +826,14 @@ MixtureMG_FA_intercepts <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,sta
   
   
   if(EFA==1){
-    nrpars=nclust-1+(nvar*nfactors-(nfactors*(nfactors-1)*(1/2)))+(nfactors*(nfactors+1)/2)*(ngroup-1)+nvar*nclust+nfactors*(ngroup-nclust)+nvar*ngroup;
+    nrpars=nclust-1+(nvar*nfactors-(nfactors*(nfactors-1)*(1/2)))+(nfactors*(nfactors+1)/2)*(ngroup-1)+nvar*nclust+nfactors*(ngroup-nclust)+nvar*ngroup-nractivatedconstraints;
   }
   else {
-    nrpars=nclust-1+sum(design)+(nfactors*(nfactors+1)/2)*ngroup-nfactors+nvar*nclust+nfactors*(ngroup-nclust)+nvar*ngroup;
+    nrpars=nclust-1+sum(design)+(nfactors*(nfactors+1)/2)*ngroup-nfactors+nvar*nclust+nfactors*(ngroup-nclust)+nvar*ngroup-nractivatedconstraints;
   }
   
   
-  output_list <- list(z_gks=z_gks,pi_ks=pi_ks,Lambda=Lambda,Psi_gs=Psi_gs,Phi_gs=Phi_gs,tau_ks=tau_ks,alpha_gks=alpha_gks,bestloglik=bestloglik,logliks=logliks,nrpars=nrpars,convergence=convergence)#heywood)
+  output_list <- list(z_gks=z_gks,pi_ks=pi_ks,Lambda=Lambda,Psi_gs=Psi_gs,Phi_gs=Phi_gs,tau_ks=tau_ks,alpha_gks=alpha_gks,bestloglik=bestloglik,logliks=logliks,nrpars=nrpars,convergence=convergence,nractivatedconstraints=nractivatedconstraints)
   
   return(output_list)
 } # end main function
@@ -868,7 +869,7 @@ UpdPostProb <- function(pi_ks, loglik_gks, ngroup, nclust, nfact){
 
 
 MixtureMG_FA_intercepts_Mstep <- function(S_gs,S_gks,N_gs,nvar,nclust,nfactors,design,N_gks,Beta_gs,Theta_gks,Theta_gs,meanexpEta_gks,Lambda,Psi_gs,Phi_gs,mu_gs,tau_ks,alpha_gks){
-  heywood <- 0
+  nractivatedconstraints <- 0
   ngroup <- length(N_gs)
   N_ks=apply(N_gks,2,sum)
   
@@ -932,18 +933,19 @@ MixtureMG_FA_intercepts_Mstep <- function(S_gs,S_gks,N_gs,nvar,nclust,nfactors,d
   
   
   # update unique variances
+  nractivatedconstraints=0
   for(g in 1:ngroup){
     S_g=S_gs[[g]]
     beta_g=Beta_gs[[g]]
     theta_g=Theta_gs[[g]]
     twoSbetaB_BthetaB=(2*Lambda%*%beta_g%*%S_g-Lambda%*%theta_g%*%t(Lambda)) # modelimplied reduced covariance matrix on sample level, based on old structure matrix and sigma_gk, weighting based on new z_gks
     psi_g=diag(diag(S_g-twoSbetaB_BthetaB))
-    if (sum(diag(psi_g)<.0001)>0){ # track heywood cases
-      heywood=1
+    if (sum(diag(psi_g)<.0001)>0){ # track "heywood" cases
       ind=diag(psi_g)<.0001
       d=diag(psi_g);
       d[ind]=0.0001;
       psi_g=diag(d);
+      nractivatedconstraints=nractivatedconstraints+sum(ind)
     }
     Psi_gs[[g]]=psi_g
   }
@@ -970,7 +972,7 @@ MixtureMG_FA_intercepts_Mstep <- function(S_gs,S_gks,N_gs,nvar,nclust,nfactors,d
     invSigma_gs[[g]]=invPsi_g-invPsi_g%*%Lambda%*%solve(invPhi_g_tLambdainvPsi_g_Lambda)%*%t(Lambda)%*%invPsi_g; # Woodbury identity
   }
   
-  output_list <- list(Lambda=Lambda,Psi_gs=Psi_gs,Phi_gs=Phi_gs,tau_ks=tau_ks,alpha_gks=alpha_gks,Sigma_gs=Sigma_gs,invSigma_gs=invSigma_gs,heywood=heywood)
+  output_list <- list(Lambda=Lambda,Psi_gs=Psi_gs,Phi_gs=Phi_gs,tau_ks=tau_ks,alpha_gks=alpha_gks,Sigma_gs=Sigma_gs,invSigma_gs=invSigma_gs,nractivatedconstraints=nractivatedconstraints)
   
   return(output_list)
 }

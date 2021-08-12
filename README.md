@@ -11,7 +11,7 @@ This version deals with factor loading differences (i.e., finds clusters of grou
 
 For model selection, it is advised to use BIC_G (number of groups as sample size) in combination with CHull (see paper, https://www.rdocumentation.org/packages/multichull/versions/1.0.0)
 
-# MixtureMG_FA_intercepts: For finding clusters of groups with scalar invariance
+# MixtureMG_FA_intercepts: For finding clusters of groups with scalar invariance (while assuming metric invariance)
 
 Please cite https://www.tandfonline.com/doi/full/10.1080/10705511.2020.1866577
 

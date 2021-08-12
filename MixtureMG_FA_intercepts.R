@@ -170,9 +170,8 @@ MixtureMG_FA_intercepts <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,sta
           invPhi_g=phi_g # phi_gk is still identity matrix
           sigma_g=Lambda %*% phi_g %*% t(Lambda) + psi_g
           Sigma_gs[[g]]=(sigma_g+t(sigma_g))*(1/2) # avoid asymmetry due to rounding errors
-          #EV <- eigen((invPhi_g+t(Lambda)%*%invPsi_g%*%Lambda), only.values=TRUE, symmetric = TRUE)
-          #print(EV)
-          invPhi_g_tLambdainvPsi_g_Lambda=((invPhi_g+t(Lambda)%*%invPsi_g%*%Lambda)+t(invPhi_g+t(Lambda)%*%invPsi_g%*%Lambda))*(1/2)
+          invPhi_g_tLambdainvPsi_g_Lambda=(invPhi_g+t(Lambda)%*%invPsi_g%*%Lambda)
+          invPhi_g_tLambdainvPsi_g_Lambda=(invPhi_g_tLambdainvPsi_g_Lambda+t(invPhi_g_tLambdainvPsi_g_Lambda))*(1/2)
           invSigma_gs[[g]]=invPsi_g-invPsi_g%*%Lambda%*%solve(invPhi_g_tLambdainvPsi_g_Lambda)%*%t(Lambda)%*%invPsi_g; # Woodbury identity
         }
         
@@ -181,15 +180,15 @@ MixtureMG_FA_intercepts <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,sta
         for(g in 1:ngroup){
           S_g=matrix(0,nvar,nvar)
           for(k in 1:nclust){
-            if(N_gks[g,k]!=0){
+            # if(N_gks[g,k]!=0){
               X_g <- Xsup[Ncum[g,1]:Ncum[g,2],]
               Xc_gk=X_g-t(matrix(tau_ks[k,]+alpha_gks[[g,k]]%*%t(Lambda),ncol=N_gs[g],nrow=nvar))
               S_gk=(1/N_gs[g])*(t(Xc_gk)%*%Xc_gk)
               S_gks[[g,k]] <- S_gk
               S_g=S_g+N_gks[g,k]*S_gk
-            } else {
-              S_gks[[g,k]] <- matrix(0,nvar,nvar)
-            }
+            # } else {
+            #   S_gks[[g,k]] <- matrix(0,nvar,nvar)
+            # }
           }
           S_gs[[g]] <- (1/N_gs[g])*S_g
         }
@@ -293,13 +292,24 @@ MixtureMG_FA_intercepts <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,sta
     if(start==2){
       randpartvec <- startpartition
     }
+    if(nclust>1){
+      z_gks=IM[randpartvec,]
+      pi_ks=(1/ngroup)*apply(z_gks,2,sum)
+    }
+    else {
+      z_gks=t(randpartvec)
+      pi_ks=1
+    }
+    N_gks=diag(N_gs[,1])%*%z_gks
+    N_ks=apply(N_gks,2,sum)
+    
     tau_ks <- matrix(0,nclust,nvar)
     for(k in 1:nclust){
-      Xsup_k=vector();
+      Xsup_k=matrix(0,N_ks[k],nvar)
       for(g in 1:ngroup){
         if(randpartvec[g]==k){
           X=Xsup[Ncum[g,1]:Ncum[g,2],]
-          Xsup_k=rbind(Xsup_k,X)
+          Xsup_k[(sum(N_gks[1:g-1,k])+1):sum(N_gks[1:g,k]),]=X
         }
       }
       tau_ks[k,] <- apply(Xsup_k,2,mean)
@@ -345,15 +355,15 @@ MixtureMG_FA_intercepts <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,sta
       }
     }
     
-    # initialize prior and posterior classification probabilities
-    if(nclust>1){
-      z_gks=IM[randpartvec,]
-      pi_ks=(1/ngroup)*apply(z_gks,2,sum)
-    }
-    else {
-      z_gks=t(randpartvec)
-      pi_ks=1
-    }
+    # # initialize prior and posterior classification probabilities
+    # if(nclust>1){
+    #   z_gks=IM[randpartvec,]
+    #   pi_ks=(1/ngroup)*apply(z_gks,2,sum)
+    # }
+    # else {
+    #   z_gks=t(randpartvec)
+    #   pi_ks=1
+    # }
     
     
     Sigma_gs <- matrix(list(NA), nrow = ngroup, ncol = 1)
@@ -365,7 +375,8 @@ MixtureMG_FA_intercepts <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,sta
       invPhi_g=solve(phi_g)
       sigma_g=Lambda %*% phi_g %*% t(Lambda) + psi_g
       Sigma_gs[[g]]=(sigma_g+t(sigma_g))*(1/2) # avoid asymmetry due to rounding errors
-      invPhi_g_tLambdainvPsi_g_Lambda=((invPhi_g+t(Lambda)%*%invPsi_g%*%Lambda)+t(invPhi_g+t(Lambda)%*%invPsi_g%*%Lambda))*(1/2)
+      invPhi_g_tLambdainvPsi_g_Lambda=(invPhi_g+t(Lambda)%*%invPsi_g%*%Lambda)
+      invPhi_g_tLambdainvPsi_g_Lambda=(invPhi_g_tLambdainvPsi_g_Lambda+t(invPhi_g_tLambdainvPsi_g_Lambda))*(1/2)
       invSigma_gs[[g]]=invPsi_g-invPsi_g%*%Lambda%*%solve(invPhi_g_tLambdainvPsi_g_Lambda)%*%t(Lambda)%*%invPsi_g; # Woodbury identity
     }
     
@@ -469,16 +480,16 @@ MixtureMG_FA_intercepts <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,sta
       for(g in 1:ngroup){
         S_g=matrix(0,nvar,nvar)
         for(k in 1:nclust){
-          if(N_gks[g,k]!=0){
+          # if(N_gks[g,k]!=0){
             X_g <- Xsup[Ncum[g,1]:Ncum[g,2],]
             Xc_gk=X_g-t(matrix(tau_ks[k,]+alpha_gks[[g,k]]%*%t(Lambda),ncol=N_gs[g],nrow=nvar))
             S_gk=(1/N_gs[g])*(t(Xc_gk)%*%Xc_gk)
             S_gks[[g,k]] <- S_gk
             S_g=S_g+N_gks[g,k]*S_gk
-          }
-          else{
-            S_gks[[g,k]] <- matrix(0,nvar,nvar)
-          }
+          # }
+          # else{
+          #   S_gks[[g,k]] <- matrix(0,nvar,nvar)
+          # }
         }
         S_gs[[g]] <- (1/N_gs[g])*S_g
       }
@@ -649,9 +660,9 @@ MixtureMG_FA_intercepts <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,sta
     
     # cycle 1 update factor means
     for(g in 1:ngroup){
+      invSigma_g=invSigma_gs[[g]]
       for(k in 1:nclust){
         if(N_ks[k]>0){
-          invSigma_g=invSigma_gs[[g]]
           alpha_gks[[g,k]]=(mu_gs[g,]-tau_ks[k,])%*%t(solve(((t(Lambda)%*%invSigma_g)%*%Lambda),t(invSigma_g%*%Lambda)))
         }
       }
@@ -692,16 +703,16 @@ MixtureMG_FA_intercepts <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,sta
     for(g in 1:ngroup){
       S_g=matrix(0,nvar,nvar)
       for(k in 1:nclust){
-        if(N_gks[g,k]!=0){
+        # if(N_gks[g,k]!=0){
           X_g <- Xsup[Ncum[g,1]:Ncum[g,2],]
           Xc_gk=X_g-t(matrix(tau_ks[k,]+alpha_gks[[g,k]]%*%t(Lambda),ncol=N_gs[g],nrow=nvar))
           S_gk=(1/N_gs[g])*(t(Xc_gk)%*%Xc_gk)
           S_gks[[g,k]] <- S_gk
           S_g=S_g+N_gks[g,k]*S_gk
-        }
-        else{
-          S_gks[[g,k]] <- matrix(0,nvar,nvar)
-        }
+        # }
+        # else{
+        #   S_gks[[g,k]] <- matrix(0,nvar,nvar)
+        # }
       }
       S_gs[[g]] <- (1/N_gs[g])*S_g
     }
@@ -924,9 +935,9 @@ MixtureMG_FA_intercepts_Mstep <- function(S_gs,S_gks,N_gs,nvar,nclust,nfactors,d
   
   # update factor means
   for(g in 1:ngroup){
+    invPsi_g=invPsi_gs[[g]]
     for(k in 1:nclust){
       if(N_ks[k]>0){
-        invPsi_g=invPsi_gs[[g]]
         alpha_gks[[g,k]]=(mu_gs[g,]-tau_ks[k,]-meanexpEta_gks[[g,k]]%*%t(Lambda))%*%t(solve(((t(Lambda)%*%invPsi_g)%*%Lambda),t(invPsi_g%*%Lambda)))
       }
     }
@@ -986,7 +997,7 @@ MixtureMG_FA_intercepts_Mstep <- function(S_gs,S_gks,N_gs,nvar,nclust,nfactors,d
   }
   
   
-  # update (inv)Sigma_gks
+  # update (inv)Sigma_gs
   Sigma_gs <- matrix(list(NA), nrow = ngroup, ncol = 1)
   invSigma_gs <- matrix(list(NA), nrow = ngroup, ncol = 1)
   for(g in 1:ngroup){
@@ -996,7 +1007,8 @@ MixtureMG_FA_intercepts_Mstep <- function(S_gs,S_gks,N_gs,nvar,nclust,nfactors,d
     invPhi_g=solve(phi_g)
     sigma_g=Lambda %*% phi_g %*% t(Lambda) + psi_g
     Sigma_gs[[g]]=(sigma_g+t(sigma_g))*(1/2) # avoid asymmetry due to rounding errors
-    invPhi_g_tLambdainvPsi_g_Lambda=((invPhi_g+t(Lambda)%*%invPsi_g%*%Lambda)+t(invPhi_g+t(Lambda)%*%invPsi_g%*%Lambda))*(1/2)
+    invPhi_g_tLambdainvPsi_g_Lambda=(invPhi_g+t(Lambda)%*%invPsi_g%*%Lambda)
+    invPhi_g_tLambdainvPsi_g_Lambda=(invPhi_g_tLambdainvPsi_g_Lambda+t(invPhi_g_tLambdainvPsi_g_Lambda))*(1/2)
     invSigma_gs[[g]]=invPsi_g-invPsi_g%*%Lambda%*%solve(invPhi_g_tLambdainvPsi_g_Lambda)%*%t(Lambda)%*%invPsi_g; # Woodbury identity
   }
   

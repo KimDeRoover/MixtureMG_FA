@@ -192,9 +192,9 @@ MixtureMG_FA_loadingsandintercepts <- function(Xsup,N_gs,nclust,nfactors,Maxiter
             invPhi_gk=phi_gk # phi_gk is still identity matrix
             sigma_gk=lambda_k %*% phi_gk %*% t(lambda_k) + psi_g
             Sigma_gks[[g,k]]=(sigma_gk+t(sigma_gk))*(1/2) # avoid asymmetry due to rounding errors
-            invPhi_g_tLambdainvPsi_g_Lambda=(invPhi_gk+t(lambda_k)%*%invPsi_g%*%lambda_k)
-            invPhi_g_tLambdainvPsi_g_Lambda=(invPhi_g_tLambdainvPsi_g_Lambda+t(invPhi_g_tLambdainvPsi_g_Lambda))*(1/2)
-            invSigma_gks[[g,k]]=invPsi_g-invPsi_g%*%lambda_k%*%solve(invPhi_g_tLambdainvPsi_g_Lambda)%*%t(lambda_k)%*%invPsi_g; # Woodbury identity
+            invPhi_gk_tLambdainvPsi_g_Lambda=(invPhi_gk+t(lambda_k)%*%invPsi_g%*%lambda_k)
+            invPhi_gk_tLambdainvPsi_g_Lambda=(invPhi_gk_tLambdainvPsi_g_Lambda+t(invPhi_gk_tLambdainvPsi_g_Lambda))*(1/2)
+            invSigma_gks[[g,k]]=invPsi_g-invPsi_g%*%lambda_k%*%solve(invPhi_gk_tLambdainvPsi_g_Lambda)%*%t(lambda_k)%*%invPsi_g; # Woodbury identity
           }
         }
         
@@ -388,17 +388,7 @@ MixtureMG_FA_loadingsandintercepts <- function(Xsup,N_gs,nclust,nfactors,Maxiter
         alpha_gks[[g,k2]] <- apply(Fscores,2,mean)
       }
     }
-    
-    # # initialize prior and posterior classification probabilities
-    # if(nclust>1){
-    #   z_gks=IM[randpartvec,]
-    #   pi_ks=(1/ngroup)*apply(z_gks,2,sum)
-    # }
-    # else {
-    #   z_gks=t(randpartvec)
-    #   pi_ks=1
-    # }
-    
+      
     
     Sigma_gks <- matrix(list(NA), nrow = ngroup, ncol = nclust)
     invSigma_gks <- matrix(list(NA), nrow = ngroup, ncol = nclust)
@@ -411,9 +401,9 @@ MixtureMG_FA_loadingsandintercepts <- function(Xsup,N_gs,nclust,nfactors,Maxiter
         invPhi_gk=solve(phi_gk)
         sigma_gk=lambda_k %*% phi_gk %*% t(lambda_k) + psi_g
         Sigma_gks[[g,k]]=(sigma_gk+t(sigma_gk))*(1/2) # avoid asymmetry due to rounding errors
-        invPhi_g_tLambdainvPsi_g_Lambda=(invPhi_gk+t(lambda_k)%*%invPsi_g%*%lambda_k)
-        invPhi_g_tLambdainvPsi_g_Lambda=(invPhi_g_tLambdainvPsi_g_Lambda+t(invPhi_g_tLambdainvPsi_g_Lambda))*(1/2)
-        invSigma_gks[[g,k]]=invPsi_g-invPsi_g%*%lambda_k%*%solve(invPhi_g_tLambdainvPsi_g_Lambda)%*%t(lambda_k)%*%invPsi_g; # Woodbury identity
+        invPhi_gk_tLambdainvPsi_g_Lambda=(invPhi_gk+t(lambda_k)%*%invPsi_g%*%lambda_k)
+        invPhi_gk_tLambdainvPsi_g_Lambda=(invPhi_gk_tLambdainvPsi_g_Lambda+t(invPhi_gk_tLambdainvPsi_g_Lambda))*(1/2)
+        invSigma_gks[[g,k]]=invPsi_g-invPsi_g%*%lambda_k%*%solve(invPhi_gk_tLambdainvPsi_g_Lambda)%*%t(lambda_k)%*%invPsi_g; # Woodbury identity
       }
     }
     
@@ -960,6 +950,7 @@ MixtureMG_FA_loadingsandintercepts_Mstep <- function(S_gs,S_gks,N_gs,nvar,nclust
         lambda_k=Lambda_ks[[k]]
         beta_gk=Beta_gks[[g,k]]
         theta_gk=Theta_gks[[g,k]]
+	S_gk=S_gks[[g,k]]
         sum2SbetaB_BthetaB=sum2SbetaB_BthetaB+(N_gks[g,k]/N_gs[g])*(2*lambda_k%*%beta_gk%*%S_gk-lambda_k%*%theta_gk%*%t(lambda_k)) # modelimplied reduced covariance matrix on sample level, based on old structure matrix and sigma_gk, weighting based on new z_gks
       }
     }
@@ -998,9 +989,9 @@ MixtureMG_FA_loadingsandintercepts_Mstep <- function(S_gs,S_gks,N_gs,nvar,nclust
       invPhi_gk=solve(phi_gk)
       sigma_gk=lambda_k %*% phi_gk %*% t(lambda_k) + psi_g
       Sigma_gks[[g,k]]=(sigma_gk+t(sigma_gk))*(1/2) # avoid asymmetry due to rounding errors
-      invPhi_g_tLambdainvPsi_g_Lambda=(invPhi_gk+t(lambda_k)%*%invPsi_g%*%lambda_k)
-      invPhi_g_tLambdainvPsi_g_Lambda=(invPhi_g_tLambdainvPsi_g_Lambda+t(invPhi_g_tLambdainvPsi_g_Lambda))*(1/2)
-      invSigma_gks[[g,k]]=invPsi_g-invPsi_g%*%lambda_k%*%solve(invPhi_g_tLambdainvPsi_g_Lambda)%*%t(lambda_k)%*%invPsi_g; # Woodbury identity
+      invPhi_gk_tLambdainvPsi_g_Lambda=(invPhi_gk+t(lambda_k)%*%invPsi_g%*%lambda_k)
+      invPhi_gk_tLambdainvPsi_g_Lambda=(invPhi_gk_tLambdainvPsi_g_Lambda+t(invPhi_gk_tLambdainvPsi_g_Lambda))*(1/2)
+      invSigma_gks[[g,k]]=invPsi_g-invPsi_g%*%lambda_k%*%solve(invPhi_gk_tLambdainvPsi_g_Lambda)%*%t(lambda_k)%*%invPsi_g; # Woodbury identity
     }
   }
   

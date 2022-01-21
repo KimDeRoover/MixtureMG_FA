@@ -13,6 +13,7 @@
 # nclust = user-specified number of clusters
 # nfactors = user-specified number of factors
 # Maxiter = maximum number of iterations
+# start = type of start (start = 1: pre-selected random starts, start = 2: start from a user-specified startpartition)
 # nruns = number of starts (based on pre-selected random partitions when start = 1)
 # preselect = percentage of best starts taken in pre-selection (increase to speed up startprocedure)
 # design = matrix indicating position of zero loadings with '0' and non-zero loadings with '1' (specify for CFA, leave unspecified for EFA)
@@ -201,10 +202,10 @@ MixtureMG_FA_loadingsandintercepts <- function(Xsup,N_gs,nclust,nfactors,Maxiter
         S_gs <- matrix(list(NA),nrow = ngroup, ncol = 1)
         for(g in 1:ngroup){
           S_g=matrix(0,nvar,nvar)
+	  X_g <- Xsup[Ncum[g,1]:Ncum[g,2],]
           for(k in 1:nclust){
             lambda_k=Lambda_ks[[k]]
             # if(N_gks[g,k]!=0){
-              X_g <- Xsup[Ncum[g,1]:Ncum[g,2],]
               Xc_gk=X_g-t(matrix(tau_ks[k,]+alpha_gks[[g,k]]%*%t(lambda_k),ncol=N_gs[g],nrow=nvar))
               S_gk=(1/N_gs[g])*(t(Xc_gk)%*%Xc_gk)
               S_gks[[g,k]] <- S_gk
@@ -474,10 +475,10 @@ MixtureMG_FA_loadingsandintercepts <- function(Xsup,N_gs,nclust,nfactors,Maxiter
       S_gs <- matrix(list(NA),nrow = ngroup, ncol = 1)
       for(g in 1:ngroup){
         S_g=matrix(0,nvar,nvar)
+	X_g <- Xsup[Ncum[g,1]:Ncum[g,2],]
         for(k in 1:nclust){
           lambda_k=Lambda_ks[[k]]
           # if(N_gks[g,k]!=0){
-          X_g <- Xsup[Ncum[g,1]:Ncum[g,2],]
           Xc_gk=X_g-t(matrix(tau_ks[k,]+alpha_gks[[g,k]]%*%t(lambda_k),ncol=N_gs[g],nrow=nvar))
           S_gk=(1/N_gs[g])*(t(Xc_gk)%*%Xc_gk)
           S_gks[[g,k]] <- S_gk
@@ -664,10 +665,10 @@ MixtureMG_FA_loadingsandintercepts <- function(Xsup,N_gs,nclust,nfactors,Maxiter
     S_gs <- matrix(list(NA),nrow = ngroup, ncol = 1)
     for(g in 1:ngroup){
       S_g=matrix(0,nvar,nvar)
+      X_g <- Xsup[Ncum[g,1]:Ncum[g,2],]
       for(k in 1:nclust){
         lambda_k=Lambda_ks[[k]]
         # if(N_gks[g,k]!=0){
-        X_g <- Xsup[Ncum[g,1]:Ncum[g,2],]
         Xc_gk=X_g-t(matrix(tau_ks[k,]+alpha_gks[[g,k]]%*%t(lambda_k),ncol=N_gs[g],nrow=nvar))
         S_gk=(1/N_gs[g])*(t(Xc_gk)%*%Xc_gk)
         S_gks[[g,k]] <- S_gk
@@ -956,7 +957,7 @@ MixtureMG_FA_loadingsandintercepts_Mstep <- function(S_gs,S_gks,N_gs,nvar,nclust
     sum2SbetaB_BthetaB=0
     for(k in 1:nclust){
       if(N_ks[k]>0){
-        lambda_k=matrix(0,nvar,nfactors)
+        lambda_k=Lambda_ks[[k]]
         beta_gk=Beta_gks[[g,k]]
         theta_gk=Theta_gks[[g,k]]
         sum2SbetaB_BthetaB=sum2SbetaB_BthetaB+(N_gks[g,k]/N_gs[g])*(2*lambda_k%*%beta_gk%*%S_gk-lambda_k%*%theta_gk%*%t(lambda_k)) # modelimplied reduced covariance matrix on sample level, based on old structure matrix and sigma_gk, weighting based on new z_gks

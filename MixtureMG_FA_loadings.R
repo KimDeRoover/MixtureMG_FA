@@ -10,6 +10,7 @@
 # nclust = user-specified number of clusters
 # nfactors = user-specified number of factors
 # Maxiter = maximum number of iterations
+# start = type of start (start = 1: pre-selected random starts, start = 2: start from a user-specified startpartition)
 # nruns = number of starts (based on pre-selected random partitions when start = 1)
 # preselect = percentage of best starts taken in pre-selection (increase to speed up startprocedure)
 # design = matrix indicating position of zero loadings with '0' and non-zero loadings with '1' (specify for CFA, leave unspecified for EFA)

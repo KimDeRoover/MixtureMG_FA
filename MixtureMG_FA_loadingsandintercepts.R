@@ -185,16 +185,17 @@ MixtureMG_FA_loadingsandintercepts <- function(Xsup,N_gs,nclust,nfactors,Maxiter
         invSigma_gks <- matrix(list(NA), nrow = ngroup, ncol = nclust)
         for(k in 1:nclust){
           lambda_k=Lambda_ks[[k]]
+          tlambda_k=t(lambda_k)
           for(g in 1:ngroup){
             psi_g=Psi_gs[[g]]
             invPsi_g=diag(1/diag(psi_g))
             phi_gk=Phi_gks[[g,k]]
             invPhi_gk=phi_gk # phi_gk is still identity matrix
-            sigma_gk=lambda_k %*% phi_gk %*% t(lambda_k) + psi_g
+            sigma_gk=lambda_k %*% phi_gk %*% tlambda_k + psi_g
             Sigma_gks[[g,k]]=(sigma_gk+t(sigma_gk))*(1/2) # avoid asymmetry due to rounding errors
-            invPhi_gk_tLambdainvPsi_g_Lambda=(invPhi_gk+t(lambda_k)%*%invPsi_g%*%lambda_k)
+            invPhi_gk_tLambdainvPsi_g_Lambda=(invPhi_gk+tlambda_k%*%invPsi_g%*%lambda_k)
             invPhi_gk_tLambdainvPsi_g_Lambda=(invPhi_gk_tLambdainvPsi_g_Lambda+t(invPhi_gk_tLambdainvPsi_g_Lambda))*(1/2)
-            invSigma_gks[[g,k]]=invPsi_g-invPsi_g%*%lambda_k%*%solve(invPhi_gk_tLambdainvPsi_g_Lambda)%*%t(lambda_k)%*%invPsi_g; # Woodbury identity
+            invSigma_gks[[g,k]]=invPsi_g-invPsi_g%*%lambda_k%*%solve(invPhi_gk_tLambdainvPsi_g_Lambda)%*%tlambda_k%*%invPsi_g; # Woodbury identity
           }
         }
         
@@ -202,11 +203,11 @@ MixtureMG_FA_loadingsandintercepts <- function(Xsup,N_gs,nclust,nfactors,Maxiter
         S_gs <- matrix(list(NA),nrow = ngroup, ncol = 1)
         for(g in 1:ngroup){
           S_g=matrix(0,nvar,nvar)
-	  X_g <- Xsup[Ncum[g,1]:Ncum[g,2],]
+	        X_g <- Xsup[Ncum[g,1]:Ncum[g,2],]
           for(k in 1:nclust){
             lambda_k=Lambda_ks[[k]]
             # if(N_gks[g,k]!=0){
-              Xc_gk=X_g-t(matrix(tau_ks[k,]+alpha_gks[[g,k]]%*%t(lambda_k),ncol=N_gs[g],nrow=nvar))
+              Xc_gk=X_g-(matrix(tau_ks[k,]+alpha_gks[[g,k]]%*%t(lambda_k),ncol=nvar,nrow=N_gs[g],byrow=TRUE))
               S_gk=(1/N_gs[g])*(t(Xc_gk)%*%Xc_gk)
               S_gks[[g,k]] <- S_gk
               S_g=S_g+N_gks[g,k]*S_gk
@@ -247,23 +248,48 @@ MixtureMG_FA_loadingsandintercepts <- function(Xsup,N_gs,nclust,nfactors,Maxiter
         invSigma_gks=Output_Mstep$invSigma_gks
         nractivatedconstraints=Output_Mstep$nractivatedconstraints
         
+        S_gks <- matrix(list(NA),nrow = ngroup, ncol = nclust)
+        S_gs <- matrix(list(NA),nrow = ngroup, ncol = 1)
+        for(g in 1:ngroup){
+          S_g=matrix(0,nvar,nvar)
+          X_g <- Xsup[Ncum[g,1]:Ncum[g,2],]
+          for(k in 1:nclust){
+            lambda_k=Lambda_ks[[k]]
+            # if(N_gks[g,k]!=0){
+            Xc_gk=X_g-(matrix(tau_ks[k,]+alpha_gks[[g,k]]%*%t(lambda_k),ncol=nvar,nrow=N_gs[g],byrow=TRUE))
+            S_gk=(1/N_gs[g])*(t(Xc_gk)%*%Xc_gk)
+            S_gks[[g,k]] <- S_gk
+            S_g=S_g+N_gks[g,k]*S_gk
+            # } else {
+            #   S_gks[[g,k]] <- matrix(0,nvar,nvar)
+            # }
+          }
+          S_gs[[g]] <- (1/N_gs[g])*S_g
+        }
         
         # compute observed-data log-likelihood for start
         ODLL_trialstart=0;
         loglik_gks <- matrix(0, nrow = ngroup, ncol = nclust) # unweighted with mixing proportions, to be re-used for calculation posterior classification probabilities
         loglik_gksw <- matrix(0, nrow = ngroup, ncol = nclust) # weighted with mixing proportions
         for(g in 1:ngroup){
-          X_g=Xsup[Ncum[g,1]:Ncum[g,2],]
+          # X_g=Xsup[Ncum[g,1]:Ncum[g,2],]
+          # for(k in 1:nclust){
+          #   logdet_sigma_gk=log(det(Sigma_gks[[g,k]]))
+          #   invSigma_gk=invSigma_gks[[g,k]]
+          #   lambda_k=Lambda_ks[[k]]
+          #   Xc_gk=X_g-t(matrix(tau_ks[k,]+alpha_gks[[g,k]]%*%t(lambda_k),ncol=N_gs[g],nrow=nvar)) # centered data per group
+          #   loglik_gk=-(1/2)*(N_gs[g]*(nvar*log(2*pi)+logdet_sigma_gk))
+          #   for (n in 1:N_gs[g]){
+          #     Xc_n=Xc_gk[n, ,drop=FALSE]
+          #     loglik_gk=loglik_gk-(1/2)*(Xc_n%*%tcrossprod(invSigma_gk,Xc_n))
+          #   }
+          #   loglik_gks[g,k]=loglik_gk
+          #   loglik_gksw[g,k]=log(pi_ks[k])+loglik_gk
+          # }
           for(k in 1:nclust){
             logdet_sigma_gk=log(det(Sigma_gks[[g,k]]))
             invSigma_gk=invSigma_gks[[g,k]]
-            lambda_k=Lambda_ks[[k]]
-            Xc_gk=X_g-t(matrix(tau_ks[k,]+alpha_gks[[g,k]]%*%t(lambda_k),ncol=N_gs[g],nrow=nvar)) # centered data per group
-            loglik_gk=-(1/2)*(N_gs[g]*(nvar*log(2*pi)+logdet_sigma_gk))
-            for (n in 1:N_gs[g]){
-              Xc_n=Xc_gk[n, ,drop=FALSE]
-              loglik_gk=loglik_gk-(1/2)*(Xc_n%*%tcrossprod(invSigma_gk,Xc_n))
-            }
+            loglik_gk=-(1/2)*N_gs[g]*(nvar*log(2*pi)+logdet_sigma_gk+sum(diag(S_gks[[g,k]]%*%invSigma_gk)))
             loglik_gks[g,k]=loglik_gk
             loglik_gksw[g,k]=log(pi_ks[k])+loglik_gk
           }
@@ -337,7 +363,7 @@ MixtureMG_FA_loadingsandintercepts <- function(Xsup,N_gs,nclust,nfactors,Maxiter
     for(g in 1:ngroup){
       k=randpartvec[g]
       X_g <- Xsup[Ncum[g,1]:Ncum[g,2],]
-      Xsupcent[Ncum[g,1]:Ncum[g,2],]=X_g-t(matrix(tau_ks[k,],ncol=N_gs[g],nrow=nvar))
+      Xsupcent[Ncum[g,1]:Ncum[g,2],]=X_g-(matrix(tau_ks[k,],ncol=nvar,nrow=N_gs[g],byrow=TRUE))
     }
     
     Lambda_ks <- matrix(list(NA),nrow = 1, ncol=nclust)
@@ -407,20 +433,32 @@ MixtureMG_FA_loadingsandintercepts <- function(Xsup,N_gs,nclust,nfactors,Maxiter
       }
     }
     
+    S_gks <- matrix(list(NA),nrow = ngroup, ncol = nclust)
+    S_gs <- matrix(list(NA),nrow = ngroup, ncol = 1)
+    for(g in 1:ngroup){
+      S_g=matrix(0,nvar,nvar)
+      X_g <- Xsup[Ncum[g,1]:Ncum[g,2],]
+      for(k in 1:nclust){
+        lambda_k=Lambda_ks[[k]]
+        # if(N_gks[g,k]!=0){
+        Xc_gk=X_g-(matrix(tau_ks[k,]+alpha_gks[[g,k]]%*%t(lambda_k),ncol=nvar,nrow=N_gs[g],byrow=TRUE))
+        S_gk=(1/N_gs[g])*(t(Xc_gk)%*%Xc_gk)
+        S_gks[[g,k]] <- S_gk
+        S_g=S_g+N_gks[g,k]*S_gk
+        # } else {
+        #   S_gks[[g,k]] <- matrix(0,nvar,nvar)
+        # }
+      }
+      S_gs[[g]] <- (1/N_gs[g])*S_g
+    }
+    
     # compute the loglikelihood for each group-cluster combination, unweighted with mixing proportions, to be used for update of posterior classification probabilities
     loglik_gks <- matrix(0, nrow = ngroup, ncol = nclust);
     for(g in 1:ngroup){
-      X_g=Xsup[Ncum[g,1]:Ncum[g,2],]
       for(k in 1:nclust){
         logdet_sigma_gk=log(det(Sigma_gks[[g,k]]))
         invSigma_gk=invSigma_gks[[g,k]]
-        lambda_k=Lambda_ks[[k]]
-        Xc_gk=X_g-t(matrix(tau_ks[k,]+alpha_gks[[g,k]]%*%t(lambda_k),ncol=N_gs[g],nrow=nvar)) # centered data per group
-        loglik_gk=-(1/2)*(N_gs[g]*(nvar*log(2*pi)+logdet_sigma_gk))
-        for (n in 1:N_gs[g]){
-          Xc_n=Xc_gk[n, ,drop=FALSE]
-          loglik_gk=loglik_gk-(1/2)*(Xc_n%*%tcrossprod(invSigma_gk,Xc_n))
-        }
+        loglik_gk=-(1/2)*N_gs[g]*(nvar*log(2*pi)+logdet_sigma_gk+sum(diag(S_gks[[g,k]]%*%invSigma_gk)))
         loglik_gks[g,k]=loglik_gk
       }
     }
@@ -465,11 +503,11 @@ MixtureMG_FA_loadingsandintercepts <- function(Xsup,N_gs,nclust,nfactors,Maxiter
       S_gs <- matrix(list(NA),nrow = ngroup, ncol = 1)
       for(g in 1:ngroup){
         S_g=matrix(0,nvar,nvar)
-	X_g <- Xsup[Ncum[g,1]:Ncum[g,2],]
+	      X_g <- Xsup[Ncum[g,1]:Ncum[g,2],]
         for(k in 1:nclust){
           lambda_k=Lambda_ks[[k]]
           # if(N_gks[g,k]!=0){
-          Xc_gk=X_g-t(matrix(tau_ks[k,]+alpha_gks[[g,k]]%*%t(lambda_k),ncol=N_gs[g],nrow=nvar))
+          Xc_gk=X_g-(matrix(tau_ks[k,]+alpha_gks[[g,k]]%*%t(lambda_k),ncol=nvar,nrow=N_gs[g],byrow=TRUE))
           S_gk=(1/N_gs[g])*(t(Xc_gk)%*%Xc_gk)
           S_gks[[g,k]] <- S_gk
           S_g=S_g+N_gks[g,k]*S_gk
@@ -510,23 +548,34 @@ MixtureMG_FA_loadingsandintercepts <- function(Xsup,N_gs,nclust,nfactors,Maxiter
       invSigma_gks=Output_Mstep$invSigma_gks
       nractivatedconstraints=Output_Mstep$nractivatedconstraints
       
+      S_gks <- matrix(list(NA),nrow = ngroup, ncol = nclust)
+      S_gs <- matrix(list(NA),nrow = ngroup, ncol = 1)
+      for(g in 1:ngroup){
+        S_g=matrix(0,nvar,nvar)
+        X_g <- Xsup[Ncum[g,1]:Ncum[g,2],]
+        for(k in 1:nclust){
+          lambda_k=Lambda_ks[[k]]
+          # if(N_gks[g,k]!=0){
+          Xc_gk=X_g-(matrix(tau_ks[k,]+alpha_gks[[g,k]]%*%t(lambda_k),ncol=nvar,nrow=N_gs[g],byrow=TRUE))
+          S_gk=(1/N_gs[g])*(t(Xc_gk)%*%Xc_gk)
+          S_gks[[g,k]] <- S_gk
+          S_g=S_g+N_gks[g,k]*S_gk
+          # } else {
+          #   S_gks[[g,k]] <- matrix(0,nvar,nvar)
+          # }
+        }
+        S_gs[[g]] <- (1/N_gs[g])*S_g
+      }
       
       # check on change in observed-data log-likelihood
       ODLL=0;
       loglik_gks <- matrix(0, nrow = ngroup, ncol = nclust) # unweighted with mixing proportions, to be re-used for calculation posterior classification probabilities
       loglik_gksw <- matrix(0, nrow = ngroup, ncol = nclust) # weighted with mixing proportions
       for(g in 1:ngroup){
-        X_g=Xsup[Ncum[g,1]:Ncum[g,2],]
         for(k in 1:nclust){
           logdet_sigma_gk=log(det(Sigma_gks[[g,k]]))
           invSigma_gk=invSigma_gks[[g,k]]
-          lambda_k=Lambda_ks[[k]]
-          Xc_gk=X_g-t(matrix(tau_ks[k,]+alpha_gks[[g,k]]%*%t(lambda_k),ncol=N_gs[g],nrow=nvar)) # centered data per group
-          loglik_gk=-(1/2)*(N_gs[g]*(nvar*log(2*pi)+logdet_sigma_gk))
-          for (n in 1:N_gs[g]){
-            Xc_n=Xc_gk[n, ,drop=FALSE]
-            loglik_gk=loglik_gk-(1/2)*(Xc_n%*%tcrossprod(invSigma_gk,Xc_n))
-          }
+          loglik_gk=-(1/2)*N_gs[g]*(nvar*log(2*pi)+logdet_sigma_gk+sum(diag(S_gks[[g,k]]%*%invSigma_gk)))
           loglik_gks[g,k]=loglik_gk
           loglik_gksw[g,k]=log(pi_ks[k])+loglik_gk
         }
@@ -557,9 +606,9 @@ MixtureMG_FA_loadingsandintercepts <- function(Xsup,N_gs,nclust,nfactors,Maxiter
       
       conv2=ODLL-prev_ODLL
       
-      #if(ODLL-prev_ODLL<0){
-      #  ODLL-prev_ODLL
-      #}
+      if(ODLL-prev_ODLL<0){
+       print(ODLL-prev_ODLL)
+      }
       
       
     } # end while-loop till convergence
@@ -659,7 +708,7 @@ MixtureMG_FA_loadingsandintercepts <- function(Xsup,N_gs,nclust,nfactors,Maxiter
       for(k in 1:nclust){
         lambda_k=Lambda_ks[[k]]
         # if(N_gks[g,k]!=0){
-        Xc_gk=X_g-t(matrix(tau_ks[k,]+alpha_gks[[g,k]]%*%t(lambda_k),ncol=N_gs[g],nrow=nvar))
+        Xc_gk=X_g-(matrix(tau_ks[k,]+alpha_gks[[g,k]]%*%t(lambda_k),ncol=nvar,nrow=N_gs[g],byrow=TRUE))
         S_gk=(1/N_gs[g])*(t(Xc_gk)%*%Xc_gk)
         S_gks[[g,k]] <- S_gk
         S_g=S_g+N_gks[g,k]*S_gk
@@ -700,21 +749,33 @@ MixtureMG_FA_loadingsandintercepts <- function(Xsup,N_gs,nclust,nfactors,Maxiter
     invSigma_gks=Output_Mstep$invSigma_gks
     nractivatedconstraints=Output_Mstep$nractivatedconstraints
     
+    S_gks <- matrix(list(NA),nrow = ngroup, ncol = nclust)
+    S_gs <- matrix(list(NA),nrow = ngroup, ncol = 1)
+    for(g in 1:ngroup){
+      S_g=matrix(0,nvar,nvar)
+      X_g <- Xsup[Ncum[g,1]:Ncum[g,2],]
+      for(k in 1:nclust){
+        lambda_k=Lambda_ks[[k]]
+        # if(N_gks[g,k]!=0){
+        Xc_gk=X_g-(matrix(tau_ks[k,]+alpha_gks[[g,k]]%*%t(lambda_k),ncol=nvar,nrow=N_gs[g],byrow=TRUE))
+        S_gk=(1/N_gs[g])*(t(Xc_gk)%*%Xc_gk)
+        S_gks[[g,k]] <- S_gk
+        S_g=S_g+N_gks[g,k]*S_gk
+        # } else {
+        #   S_gks[[g,k]] <- matrix(0,nvar,nvar)
+        # }
+      }
+      S_gs[[g]] <- (1/N_gs[g])*S_g
+    }
+    
     ODLL=0;
     loglik_gks <- matrix(0, nrow = ngroup, ncol = nclust) # unweighted with mixing proportions, to be re-used for calculation posterior classification probabilities
     loglik_gksw <- matrix(0, nrow = ngroup, ncol = nclust) # weighted with mixing proportions
     for(g in 1:ngroup){
-      X_g=Xsup[Ncum[g,1]:Ncum[g,2],]
       for(k in 1:nclust){
         logdet_sigma_gk=log(det(Sigma_gks[[g,k]]))
         invSigma_gk=invSigma_gks[[g,k]]
-        lambda_k=Lambda_ks[[k]]
-        Xc_gk=X_g-t(matrix(tau_ks[k,]+alpha_gks[[g,k]]%*%t(lambda_k),ncol=N_gs[g],nrow=nvar)) # centered data per group
-        loglik_gk=-(1/2)*(N_gs[g]*(nvar*log(2*pi)+logdet_sigma_gk))
-        for (n in 1:N_gs[g]){
-          Xc_n=Xc_gk[n, ,drop=FALSE]
-          loglik_gk=loglik_gk-(1/2)*(Xc_n%*%tcrossprod(invSigma_gk,Xc_n))
-        }
+        loglik_gk=-(1/2)*N_gs[g]*(nvar*log(2*pi)+logdet_sigma_gk+sum(diag(S_gks[[g,k]]%*%invSigma_gk)))
         loglik_gks[g,k]=loglik_gk
         loglik_gksw[g,k]=log(pi_ks[k])+loglik_gk
       }
@@ -743,9 +804,9 @@ MixtureMG_FA_loadingsandintercepts <- function(Xsup,N_gs,nclust,nfactors,Maxiter
     conv1 <- sum(parsabsdiffdiv)#do.call(sum,parsabsdiffdiv)
     
     conv2=ODLL-prev_ODLL
-    #if(ODLL-prev_ODLL<0){
-    #  ODLL-prev_ODLL
-    #}
+    if(ODLL-prev_ODLL<0){
+     print(ODLL-prev_ODLL)
+    }
     bestloglik=ODLL
     
     
@@ -887,11 +948,12 @@ MixtureMG_FA_loadingsandintercepts_Mstep <- function(S_gs,S_gks,N_gs,nvar,nclust
   for(k in 1:nclust){
     if(N_ks[k]>0){
       lambda_k=Lambda_ks[[k]]
+      tlambda_k=t(lambda_k)
       suminvPsi=matrix(0,nvar,nvar)
       summeansminusalphaLambdainvPsi=matrix(0,1,nvar)
       for(g in 1:ngroup){
         invPsi_g=invPsi_gs[[g]]
-        summeansminusalphaLambdainvPsi=summeansminusalphaLambdainvPsi+N_gks[g,k]*(mu_gs[g,]-alpha_gks[[g,k]]%*%t(lambda_k)-meanexpEta_gks[[g,k]]%*%t(lambda_k))%*%invPsi_g
+        summeansminusalphaLambdainvPsi=summeansminusalphaLambdainvPsi+N_gks[g,k]*(mu_gs[g,]-alpha_gks[[g,k]]%*%tlambda_k-meanexpEta_gks[[g,k]]%*%tlambda_k)%*%invPsi_g
         suminvPsi=suminvPsi+N_gks[g,k]*invPsi_g
       }
       tau_ks[k,]=t(solve(suminvPsi,t(summeansminusalphaLambdainvPsi)))
@@ -904,7 +966,8 @@ MixtureMG_FA_loadingsandintercepts_Mstep <- function(S_gs,S_gks,N_gs,nvar,nclust
     for(k in 1:nclust){
       if(N_ks[k]>0){
         lambda_k=Lambda_ks[[k]]
-        alpha_gks[[g,k]]=(mu_gs[g,]-tau_ks[k,]-meanexpEta_gks[[g,k]]%*%t(lambda_k))%*%t(solve(((t(lambda_k)%*%invPsi_g)%*%lambda_k),t(invPsi_g%*%lambda_k)))
+        tlambda_k=t(lambda_k)
+        alpha_gks[[g,k]]=(mu_gs[g,]-tau_ks[k,]-meanexpEta_gks[[g,k]]%*%tlambda_k)%*%t(solve(((tlambda_k%*%invPsi_g)%*%lambda_k),(tlambda_k%*%invPsi_g)))
       }
     }
   }
@@ -930,7 +993,8 @@ MixtureMG_FA_loadingsandintercepts_Mstep <- function(S_gs,S_gks,N_gs,nvar,nclust
           alpha_gk=alpha_gk[design[j,]==1]
           meanexpeta_gk=meanexpEta_gks[[g,k]]
           meanexpeta_gk=meanexpeta_gk[design[j,]==1]
-          sumthetaalpha=sumthetaalpha+(N_gks[g,k]/psi_g[j,j])*(theta_gk+alpha_gk%*%t(alpha_gk)+meanexpeta_gk%*%t(alpha_gk))
+          talpha_gk=t(alpha_gk)
+          sumthetaalpha=sumthetaalpha+(N_gks[g,k]/psi_g[j,j])*(theta_gk+alpha_gk%*%talpha_gk+meanexpeta_gk%*%talpha_gk)
           summeansalpha=summeansalpha+(N_gks[g,k]/psi_g[j,j])*((mu_gs[g,j]-tau_ks[k,j])%*%alpha_gk)
         }
         lambda_k[j,design[j,]==1]= t(solve(sumthetaalpha,t(sumSbeta+summeansalpha)))
@@ -950,7 +1014,7 @@ MixtureMG_FA_loadingsandintercepts_Mstep <- function(S_gs,S_gks,N_gs,nvar,nclust
         lambda_k=Lambda_ks[[k]]
         beta_gk=Beta_gks[[g,k]]
         theta_gk=Theta_gks[[g,k]]
-	S_gk=S_gks[[g,k]]
+	      S_gk=S_gks[[g,k]]
         sum2SbetaB_BthetaB=sum2SbetaB_BthetaB+(N_gks[g,k]/N_gs[g])*(2*lambda_k%*%beta_gk%*%S_gk-lambda_k%*%theta_gk%*%t(lambda_k)) # modelimplied reduced covariance matrix on sample level, based on old structure matrix and sigma_gk, weighting based on new z_gks
       }
     }
@@ -982,16 +1046,17 @@ MixtureMG_FA_loadingsandintercepts_Mstep <- function(S_gs,S_gks,N_gs,nvar,nclust
   invSigma_gks <- matrix(list(NA), nrow = ngroup, ncol = nclust)
   for(k in 1:nclust){
     lambda_k=Lambda_ks[[k]]
+    tlambda_k=t(lambda_k)
     for(g in 1:ngroup){
       psi_g=Psi_gs[[g]]
       invPsi_g=diag(1/diag(psi_g))
       phi_gk=Phi_gks[[g,k]]
       invPhi_gk=solve(phi_gk)
-      sigma_gk=lambda_k %*% phi_gk %*% t(lambda_k) + psi_g
+      sigma_gk=lambda_k %*% phi_gk %*% tlambda_k + psi_g
       Sigma_gks[[g,k]]=(sigma_gk+t(sigma_gk))*(1/2) # avoid asymmetry due to rounding errors
-      invPhi_gk_tLambdainvPsi_g_Lambda=(invPhi_gk+t(lambda_k)%*%invPsi_g%*%lambda_k)
+      invPhi_gk_tLambdainvPsi_g_Lambda=(invPhi_gk+tlambda_k%*%invPsi_g%*%lambda_k)
       invPhi_gk_tLambdainvPsi_g_Lambda=(invPhi_gk_tLambdainvPsi_g_Lambda+t(invPhi_gk_tLambdainvPsi_g_Lambda))*(1/2)
-      invSigma_gks[[g,k]]=invPsi_g-invPsi_g%*%lambda_k%*%solve(invPhi_gk_tLambdainvPsi_g_Lambda)%*%t(lambda_k)%*%invPsi_g; # Woodbury identity
+      invSigma_gks[[g,k]]=invPsi_g-invPsi_g%*%lambda_k%*%solve(invPhi_gk_tLambdainvPsi_g_Lambda)%*%tlambda_k%*%invPsi_g; # Woodbury identity
     }
   }
   

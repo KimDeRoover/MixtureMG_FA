@@ -5,8 +5,9 @@
 # for model selection, it is advised to use BIC_G (number of groups as sample size) in combination with CHull (see paper)
 
 # INPUT:
-# Xsup = data matrix for all groups (rows are subjects nested within groups, columns are the variables to be factor-analyzed)
-# N_gs = vector with number of subjects for each group (in the same order as they appear in the data matrix)
+# dat = either a matrix of vertically concatenated, group-specific (co)variance matrices; or a matrix containing the vertically concatenated raw data for all groups
+# (where rows are subjects nested within groups, columns are the variables to be factor-analyzed)
+# N_gs = vector with sample size for each group (in the same order as they appear in the data matrix)
 # nclust = user-specified number of clusters
 # nfactors = user-specified number of factors
 # Maxiter = maximum number of iterations
@@ -30,9 +31,8 @@
 # convergence = 2 if converged on loglikelihood, 1 if converged on parameter changes, 0 if not converged
 # nractivatedconstraints = number of constraints on the unique variances (across groups) to avoid unique variances approaching zero
 
-MixtureMG_FA_loadings <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,start = 1,nruns = 50,design=0,preselect = 10,startpartition){
+MixtureMG_FA_loadings <- function(dat,N_gs,nclust,nfactors,Maxiter = 1000,start = 1,nruns = 50,design=0,preselect = 10,startpartition){
   
-  Xsup=as.matrix(Xsup)
   ngroup <- length(N_gs)
   if(nrow(N_gs)!=ngroup || is.null(nrow(N_gs))){ # make sure N_gs is a column vector
     N_gs_colvec=matrix(0,ngroup,1)
@@ -41,15 +41,49 @@ MixtureMG_FA_loadings <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,start
     }
     N_gs <- N_gs_colvec
   }
-  nvar <- ncol(Xsup)
-  N <- sum(N_gs);
+  N <- sum(N_gs)
   IM <- diag(nclust)
-  Ncum <- matrix(0,ngroup,2)
-  Ncum[1,1]=1 
-  Ncum[1,2]=N_gs[1]
-  for(g in 2:ngroup){
-    Ncum[g,1]=sum(N_gs[1:(g-1)])+1 # Ncum[g,1]: first row in Xsup for group g
-    Ncum[g,2]=sum(N_gs[1:g]) # Ncum[g,2]: last row in Xsup for group g
+  
+  if (nrow(dat)==N){ # input is raw data matrix
+    nvar=ncol(dat)
+    Xsup=as.matrix(Xsup)
+    Ncum <- matrix(0,ngroup,2)
+    Ncum[1,1]=1 
+    Ncum[1,2]=N_gs[1]
+    for(g in 2:ngroup){
+      Ncum[g,1]=sum(N_gs[1:(g-1)])+1 # Ncum[g,1]: first row in Xsup for group g
+      Ncum[g,2]=sum(N_gs[1:g]) # Ncum[g,2]: last row in Xsup for group g
+    }
+    # compute group-specific means, work with group-centered data from now on
+    mu_gs=matrix(0,ngroup,nvar)
+    Xsupcent <- matrix(0,N,nvar)
+    for(g in 1:ngroup){
+      X_g <- Xsup[Ncum[g,1]:Ncum[g,2],]
+      mu_gs[g,] <- apply(X_g,2,mean)
+      Xsupcent[Ncum[g,1]:Ncum[g,2],]=scale(X_g,scale = FALSE)
+    }
+    Xsup <- Xsupcent
+    
+    # compute sample covariance matrices
+    S_gs <- matrix(list(NA),nrow = ngroup, ncol = 1)
+    for(g in 1:ngroup){
+      X_g=Xsup[Ncum[g,1]:Ncum[g,2],]
+      S_gs[[g]] <- (1/N_gs[g])*(t(X_g)%*%X_g)
+    }
+  } else { # input is list or concatenation of covariance matrices
+    if (is.list(dat)){ # input is a list of covariance matrices
+      nvar=ncol(dat[[1]])
+      S_gs=dat
+      mu_gs=matrix(0,ngroup,nvar)
+    }
+    else { # input is concatenation of covariance matrices that should be turned into a list
+      nvar=ncol(dat)
+      S_gs <- matrix(list(NA),nrow = ngroup, ncol = 1)
+      for(g in 1:ngroup){
+        S_gs[[g]] <- dat[nvar*(g-1)+1:nvar*g,]
+      }
+      mu_gs=matrix(0,ngroup,nvar)
+    }
   }
   
   if (sum(design)==0){ # if design is unspecified, EFA is used
@@ -59,23 +93,6 @@ MixtureMG_FA_loadings <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,start
     EFA=0
   }
   
-  
-  # compute group-specific means, work with group-centered data from now on
-  mu_gs=matrix(0,ngroup,nvar)
-  Xsupcent <- matrix(0,N,nvar)
-  for(g in 1:ngroup){
-    X_g <- Xsup[Ncum[g,1]:Ncum[g,2],]
-    mu_gs[g,] <- apply(X_g,2,mean)
-    Xsupcent[Ncum[g,1]:Ncum[g,2],]=scale(X_g,scale = FALSE)
-  }
-  Xsup <- Xsupcent;
-  
-  # compute sample covariance matrices
-  S_gs <- matrix(list(NA),nrow = ngroup, ncol = 1)
-  for(g in 1:ngroup){
-    X_g=Xsup[Ncum[g,1]:Ncum[g,2],]
-    S_gs[[g]] <- (1/N_gs[g])*(t(X_g)%*%X_g)
-  }
   
   if(start==1){
     if(nclust>1){
@@ -120,14 +137,21 @@ MixtureMG_FA_loadings <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,start
         Lambda_ks <- matrix(list(NA),nrow = 1, ncol=nclust)
         uniq_ks <- matrix(0,nclust,nvar)
         for(k in 1:nclust){
-          Xsup_k=matrix(0,N_ks[k],nvar)
+          # Xsup_k=matrix(0,N_ks[k],nvar)
+          # for(g in 1:ngroup){
+          #   if(randpartvec[g]==k){
+          #     X=Xsup[Ncum[g,1]:Ncum[g,2],]
+          #     Xsup_k[(sum(N_gks[1:g-1,k])+1):sum(N_gks[1:g,k]),]=X
+          #   }
+          # }
+          # S_k <- (1/sum(N_gs[randpartvec==k]))*(t(Xsup_k)%*%Xsup_k)
+          S_k=matrix(0,nvar,nvar)
           for(g in 1:ngroup){
             if(randpartvec[g]==k){
-              X=Xsup[Ncum[g,1]:Ncum[g,2],]
-              Xsup_k[(sum(N_gks[1:g-1,k])+1):sum(N_gks[1:g,k]),]=X
+              S_k=S_k+N_gs[g]*S_gs[[g]]
             }
           }
-          S_k <- (1/sum(N_gs[randpartvec==k]))*(t(Xsup_k)%*%Xsup_k)
+          S_k=(1/sum(N_gs[randpartvec==k]))*S_k
           ed<-eigen(S_k, symmetric=TRUE, only.values = FALSE)
           val<-ed$values
           u<-ed$vectors
@@ -161,7 +185,7 @@ MixtureMG_FA_loadings <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,start
             psi_g=Psi_gs[[g]]
             invPsi_g=diag(1/diag(psi_g))
             phi_gk=Phi_gks[[g,k]]
-            invPhi_gk=phi_gk #solve(phi_gk) phi_gk is still identity matrix
+            invPhi_gk=phi_gk # here phi_gk is still identity matrix
             sigma_gk=lambda_k %*% phi_gk %*% tlambda_k + psi_g
             Sigma_gks[[g,k]]=(sigma_gk+t(sigma_gk))*(1/2) # avoid asymmetry due to rounding errors
             #EV <- eigen((invPhi_gk+t(lambda_k)%*%invPsi_g%*%lambda_k), only.values=TRUE, symmetric = TRUE)
@@ -203,15 +227,22 @@ MixtureMG_FA_loadings <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,start
         loglik_gks <- matrix(0, nrow = ngroup, ncol = nclust) # unweighted with mixing proportions, to be re-used for calculation posterior classification probabilities
         loglik_gksw <- matrix(0, nrow = ngroup, ncol = nclust) # weighted with mixing proportions
         for(g in 1:ngroup){
-          X_g=Xsup[Ncum[g,1]:Ncum[g,2],] # centered data per group
+          # X_g=Xsup[Ncum[g,1]:Ncum[g,2],] # centered data per group
+          # for(k in 1:nclust){
+          #   logdet_sigma_gk=log(det(Sigma_gks[[g,k]]))
+          #   invSigma_gk=invSigma_gks[[g,k]]
+          #   loglik_gk=-(1/2)*(N_gs[g]*(nvar*log(2*pi)+logdet_sigma_gk))
+          #   for (n in 1:N_gs[g]){
+          #     X_n=X_g[n, ,drop=FALSE]
+          #     loglik_gk=loglik_gk-(1/2)*(X_n%*%tcrossprod(invSigma_gk,X_n))
+          #   }
+          #   loglik_gks[g,k]=loglik_gk
+          #   loglik_gksw[g,k]=log(pi_ks[k])+loglik_gk
+          # }
           for(k in 1:nclust){
             logdet_sigma_gk=log(det(Sigma_gks[[g,k]]))
             invSigma_gk=invSigma_gks[[g,k]]
-            loglik_gk=-(1/2)*(N_gs[g]*(nvar*log(2*pi)+logdet_sigma_gk))
-            for (n in 1:N_gs[g]){
-              X_n=X_g[n, ,drop=FALSE]
-              loglik_gk=loglik_gk-(1/2)*(X_n%*%tcrossprod(invSigma_gk,X_n))
-            }
+            loglik_gk=-(1/2)*N_gs[g]*(nvar*log(2*pi)+logdet_sigma_gk+sum(diag(S_gs[[g]]%*%invSigma_gk)))
             loglik_gks[g,k]=loglik_gk
             loglik_gksw[g,k]=log(pi_ks[k])+loglik_gk
           }
@@ -260,14 +291,13 @@ MixtureMG_FA_loadings <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,start
     Lambda_ks <- matrix(list(NA),nrow = 1, ncol=nclust)
     uniq_ks <- matrix(0,nclust,nvar)
     for(k in 1:nclust){
-      Xsup_k=vector();
+      S_k=matrix(0,nvar,nvar)
       for(g in 1:ngroup){
         if(randpartvec[g]==k){
-          X=Xsup[Ncum[g,1]:Ncum[g,2],]
-          Xsup_k=rbind(Xsup_k,X)
+          S_k=S_k+N_gs[g]*S_gs[[g]]
         }
       }
-      S_k <- (1/sum(N_gs[randpartvec==k]))*(t(Xsup_k)%*%Xsup_k)
+      S_k=(1/sum(N_gs[randpartvec==k]))*S_k
       ed<-eigen(S_k, symmetric=TRUE, only.values = FALSE)
       val<-ed$values
       u<-ed$vectors
@@ -320,15 +350,10 @@ MixtureMG_FA_loadings <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,start
     # compute the loglikelihood for each group-cluster combination, unweighted with mixing proportions, to be used for update of posterior classification probabilities
     loglik_gks <- matrix(0, nrow = ngroup, ncol = nclust);
     for(g in 1:ngroup){
-      X_g=Xsup[Ncum[g,1]:Ncum[g,2],] # centered data per group
       for(k in 1:nclust){
         logdet_sigma_gk=log(det(Sigma_gks[[g,k]]))
         invSigma_gk=invSigma_gks[[g,k]]
-        loglik_gk=-(1/2)*(N_gs[g]*(nvar*log(2*pi)+logdet_sigma_gk))
-        for (n in 1:N_gs[g]){
-          X_n=X_g[n, ,drop=FALSE]
-          loglik_gk=loglik_gk-(1/2)*(X_n%*%tcrossprod(invSigma_gk,X_n))
-        }
+        loglik_gk=-(1/2)*N_gs[g]*(nvar*log(2*pi)+logdet_sigma_gk+sum(diag(S_gs[[g]]%*%invSigma_gk)))
         loglik_gks[g,k]=loglik_gk
       }
     }
@@ -394,15 +419,10 @@ MixtureMG_FA_loadings <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,start
       loglik_gks <- matrix(0, nrow = ngroup, ncol = nclust) # unweighted with mixing proportions, to be re-used for calculation posterior classification probabilities
       loglik_gksw <- matrix(0, nrow = ngroup, ncol = nclust) # weighted with mixing proportions
       for(g in 1:ngroup){
-        X_g=Xsup[Ncum[g,1]:Ncum[g,2],] # centered data per group
         for(k in 1:nclust){
           logdet_sigma_gk=log(det(Sigma_gks[[g,k]]))
           invSigma_gk=invSigma_gks[[g,k]]
-          loglik_gk=-(1/2)*(N_gs[g]*(nvar*log(2*pi)+logdet_sigma_gk))
-          for (n in 1:N_gs[g]){
-            X_n=X_g[n, ,drop=FALSE]
-            loglik_gk=loglik_gk-(1/2)*(X_n%*%tcrossprod(invSigma_gk,X_n))
-          }
+          loglik_gk=-(1/2)*N_gs[g]*(nvar*log(2*pi)+logdet_sigma_gk+sum(diag(S_gs[[g]]%*%invSigma_gk)))
           loglik_gks[g,k]=loglik_gk
           loglik_gksw[g,k]=log(pi_ks[k])+loglik_gk
         }
@@ -430,7 +450,7 @@ MixtureMG_FA_loadings <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,start
       
       conv2=ODLL-prev_ODLL
       if(ODLL-prev_ODLL<0){
-        ODLL-prev_ODLL
+        print(ODLL-prev_ODLL)
       }
       
       
@@ -541,15 +561,10 @@ MixtureMG_FA_loadings <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,start
     loglik_gks <- matrix(0, nrow = ngroup, ncol = nclust) # unweighted with mixing proportions, to be re-used for calculation posterior classification probabilities
     loglik_gksw <- matrix(0, nrow = ngroup, ncol = nclust) # weighted with mixing proportions
     for(g in 1:ngroup){
-      X_g=Xsup[Ncum[g,1]:Ncum[g,2],] # centered data per group
       for(k in 1:nclust){
         logdet_sigma_gk=log(det(Sigma_gks[[g,k]]))
         invSigma_gk=invSigma_gks[[g,k]]
-        loglik_gk=-(1/2)*(N_gs[g]*(nvar*log(2*pi)+logdet_sigma_gk))
-        for (n in 1:N_gs[g]){
-          X_n=X_g[n, ,drop=FALSE]
-          loglik_gk=loglik_gk-(1/2)*(X_n%*%tcrossprod(invSigma_gk,X_n))
-        }
+        loglik_gk=-(1/2)*N_gs[g]*(nvar*log(2*pi)+logdet_sigma_gk+sum(diag(S_gs[[g]]%*%invSigma_gk)))
         loglik_gks[g,k]=loglik_gk
         loglik_gksw[g,k]=log(pi_ks[k])+loglik_gk
       }
@@ -577,7 +592,7 @@ MixtureMG_FA_loadings <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,start
     
     conv2=ODLL-prev_ODLL
     if(ODLL-prev_ODLL<0){
-      ODLL-prev_ODLL
+      print(ODLL-prev_ODLL)
     }
     bestloglik=ODLL
     

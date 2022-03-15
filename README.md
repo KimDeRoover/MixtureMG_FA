@@ -11,7 +11,7 @@ This version deals with factor loading differences (i.e., finds clusters of grou
 
 For model selection, it is advised to use BIC_G (number of groups as sample size) in combination with CHull (see paper, https://www.rdocumentation.org/packages/multichull/versions/1.0.0)
 
-Note that this code already supports covariance matrix input. This is not yet the case for the other codes and the main 'MixtureMG_FA' code.
+Note that this code already supports covariance matrix input (i.e., inputting a list (or vertical concatenation) of the group-specific covariance matrices; means are not necessary as they don't affect the clustering in this case). This is not yet the case for the other codes and the main 'MixtureMG_FA' code.
 
 # MixtureMG_FA_intercepts: For finding clusters of groups with scalar invariance (while assuming metric invariance)
 

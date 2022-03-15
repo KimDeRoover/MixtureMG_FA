@@ -68,7 +68,7 @@ MixtureMG_FA_loadingsandintercepts <- function(Xsup,N_gs,nclust,nfactors,Maxiter
   mu_gs=matrix(0,ngroup,nvar)
   for(g in 1:ngroup){
     X_g <- Xsup[Ncum[g,1]:Ncum[g,2],]
-    mu_gs[g,] <- apply(X_g,2,mean)
+    mu_gs[g,] <- colMeans(X_g)
   }
   
   
@@ -103,14 +103,14 @@ MixtureMG_FA_loadingsandintercepts <- function(Xsup,N_gs,nclust,nfactors,Maxiter
         randpartvec=randpartvecs[trialstart,];
         if(nclust>1){
           z_gks=IM[randpartvec,]
-          pi_ks=(1/ngroup)*apply(z_gks,2,sum)
+          pi_ks=(1/ngroup)*colSums(z_gks)
         }
         else {
           z_gks=t(randpartvec)
           pi_ks=1
         }
         N_gks=diag(N_gs[,1])%*%z_gks
-        N_ks=apply(N_gks,2,sum)
+        N_ks=colSums(N_gks)
         
         tau_ks <- matrix(0,nclust,nvar)
         for(k in 1:nclust){
@@ -121,14 +121,14 @@ MixtureMG_FA_loadingsandintercepts <- function(Xsup,N_gs,nclust,nfactors,Maxiter
               Xsup_k[(sum(N_gks[1:g-1,k])+1):sum(N_gks[1:g,k]),]=X
             }
           }
-          tau_ks[k,] <- apply(Xsup_k,2,mean)
+          tau_ks[k,] <- colMeans(Xsup_k)
         }
         # center data with initialized intercepts
         Xsupcent <- matrix(0,N,nvar)
         for(g in 1:ngroup){
           k=randpartvec[g]
           X_g <- Xsup[Ncum[g,1]:Ncum[g,2],]
-          Xsupcent[Ncum[g,1]:Ncum[g,2],]=X_g-t(matrix(tau_ks[k,],ncol=N_gs[g],nrow=nvar))
+          Xsupcent[Ncum[g,1]:Ncum[g,2],]=sweep(X_g,2,tau_ks[k,],check.margin = FALSE)
         }
         
 	      Lambda_ks <- matrix(list(NA),nrow = 1, ncol=nclust)
@@ -169,14 +169,15 @@ MixtureMG_FA_loadingsandintercepts <- function(Xsup,N_gs,nclust,nfactors,Maxiter
           for(k2 in 1:nclust){
 	          lambda_k=Lambda_ks[[k2]]
 	          Phi_gks[[g,k2]]=diag(nfactors)
-            X_c=X_g-t(matrix(tau_ks[k2,],ncol=N_gs[g],nrow=nvar))
+            #X_c=X_g-(matrix(tau_ks[k2,],ncol=nvar,nrow=N_gs[g],byrow=TRUE))
+	          X_c=sweep(X_g,2,tau_ks[k2,],check.margin = FALSE)
             udv=svd(X_c%*%lambda_k)
             U=udv$u
             V=udv$v
             Fscores=U[,seq_len(nfactors),drop=FALSE]%*%t(V) # compute component scores as initial estimates of factor scores
             Fvar=apply(Fscores,2,var)
             Fscores=scale(Fscores,center=FALSE,scale=sqrt(Fvar))
-            alpha_gks[[g,k2]] <- apply(Fscores,2,mean)
+            alpha_gks[[g,k2]] <- colMeans(Fscores)
           }
         }
 
@@ -201,19 +202,19 @@ MixtureMG_FA_loadingsandintercepts <- function(Xsup,N_gs,nclust,nfactors,Maxiter
         
         S_gks <- matrix(list(NA),nrow = ngroup, ncol = nclust)
         S_gs <- matrix(list(NA),nrow = ngroup, ncol = 1)
+        alpha_tlambda_gks <- matrix(list(NA),nrow = ngroup, ncol = nclust)
         for(g in 1:ngroup){
           S_g=matrix(0,nvar,nvar)
-	        X_g <- Xsup[Ncum[g,1]:Ncum[g,2],]
+          X_g <- Xsup[Ncum[g,1]:Ncum[g,2],]
           for(k in 1:nclust){
             lambda_k=Lambda_ks[[k]]
-            # if(N_gks[g,k]!=0){
-              Xc_gk=X_g-(matrix(tau_ks[k,]+alpha_gks[[g,k]]%*%t(lambda_k),ncol=nvar,nrow=N_gs[g],byrow=TRUE))
-              S_gk=(1/N_gs[g])*(t(Xc_gk)%*%Xc_gk)
-              S_gks[[g,k]] <- S_gk
-              S_g=S_g+N_gks[g,k]*S_gk
-            # } else {
-            #   S_gks[[g,k]] <- matrix(0,nvar,nvar)
-            # }
+            tlambda_k=t(lambda_k)
+            alpha_tlambda_gks[[g,k]]=alpha_gks[[g,k]]%*%tlambda_k
+            Xc_gk=sweep(X_g,2,tau_ks[k,]+alpha_tlambda_gks[[g,k]],check.margin = FALSE)
+            #S_gk=(1/N_gs[g])*(t(Xc_gk)%*%Xc_gk) 
+            S_gk=(1/N_gs[g])*crossprod(Xc_gk,Xc_gk)
+            S_gks[[g,k]] <- S_gk
+            S_g=S_g+N_gks[g,k]*S_gk
           }
           S_gs[[g]] <- (1/N_gs[g])*S_g
         }
@@ -233,7 +234,7 @@ MixtureMG_FA_loadingsandintercepts <- function(Xsup,N_gs,nclust,nfactors,Maxiter
             S_gk=S_gks[[g,k]]
             theta_gk=phi_gk-beta_gk%*%lambda_k%*%phi_gk+beta_gk%*%S_gk%*%t(beta_gk)
             Theta_gks[[g,k]]=theta_gk
-            meanexpEta_gks[[g,k]]=(mu_gs[g,]-tau_ks[k,]-alpha_gks[[g,k]]%*%t(lambda_k))%*%t(beta_gk)
+            meanexpEta_gks[[g,k]]=(mu_gs[g,]-tau_ks[k,]-alpha_tlambda_gks[[g,k]])%*%t(beta_gk)
             #meanexpEta_gs[[g]]=meanexpEta_gs[[g]]+(N_gks[g,k]/N_gs[g])*meanexpEta_gks[[g,k]]
           }
         }
@@ -255,14 +256,11 @@ MixtureMG_FA_loadingsandintercepts <- function(Xsup,N_gs,nclust,nfactors,Maxiter
           X_g <- Xsup[Ncum[g,1]:Ncum[g,2],]
           for(k in 1:nclust){
             lambda_k=Lambda_ks[[k]]
-            # if(N_gks[g,k]!=0){
-            Xc_gk=X_g-(matrix(tau_ks[k,]+alpha_gks[[g,k]]%*%t(lambda_k),ncol=nvar,nrow=N_gs[g],byrow=TRUE))
-            S_gk=(1/N_gs[g])*(t(Xc_gk)%*%Xc_gk)
+            tlambda_k=t(lambda_k)
+            Xc_gk=sweep(X_g,2,tau_ks[k,]+alpha_gks[[g,k]]%*%tlambda_k,check.margin = FALSE)
+            S_gk=(1/N_gs[g])*crossprod(Xc_gk,Xc_gk)#S_gk=(1/N_gs[g])*(t(Xc_gk)%*%Xc_gk)
             S_gks[[g,k]] <- S_gk
             S_g=S_g+N_gks[g,k]*S_gk
-            # } else {
-            #   S_gks[[g,k]] <- matrix(0,nvar,nvar)
-            # }
           }
           S_gs[[g]] <- (1/N_gs[g])*S_g
         }
@@ -288,8 +286,7 @@ MixtureMG_FA_loadingsandintercepts <- function(Xsup,N_gs,nclust,nfactors,Maxiter
           # }
           for(k in 1:nclust){
             logdet_sigma_gk=log(det(Sigma_gks[[g,k]]))
-            invSigma_gk=invSigma_gks[[g,k]]
-            loglik_gk=-(1/2)*N_gs[g]*(nvar*log(2*pi)+logdet_sigma_gk+sum(diag(S_gks[[g,k]]%*%invSigma_gk)))
+            loglik_gk=-(1/2)*N_gs[g]*(nvar*log(2*pi)+logdet_sigma_gk+sum(S_gks[[g,k]]*invSigma_gks[[g,k]])) # sum(S_gks[[g,k]]*invSigma_gks[[g,k]])=sum(diag(S_gks[[g,k]]%*%invSigma_gks[[g,k]]))
             loglik_gks[g,k]=loglik_gk
             loglik_gksw[g,k]=log(pi_ks[k])+loglik_gk
           }
@@ -338,14 +335,14 @@ MixtureMG_FA_loadingsandintercepts <- function(Xsup,N_gs,nclust,nfactors,Maxiter
     
     if(nclust>1){
       z_gks=IM[randpartvec,]
-      pi_ks=(1/ngroup)*apply(z_gks,2,sum)
+      pi_ks=(1/ngroup)*colSums(z_gks)
     }
     else {
       z_gks=t(randpartvec)
       pi_ks=1
     }
     N_gks=diag(N_gs[,1])%*%z_gks
-    N_ks=apply(N_gks,2,sum)
+    N_ks=colSums(N_gks)
     
     tau_ks <- matrix(0,nclust,nvar)
     for(k in 1:nclust){
@@ -356,14 +353,14 @@ MixtureMG_FA_loadingsandintercepts <- function(Xsup,N_gs,nclust,nfactors,Maxiter
           Xsup_k[(sum(N_gks[1:g-1,k])+1):sum(N_gks[1:g,k]),]=X
         }
       }
-      tau_ks[k,] <- apply(Xsup_k,2,mean)
+      tau_ks[k,] <- colMeans(Xsup_k)
     }
     # center data with initialized intercepts
     Xsupcent <- matrix(0,N,nvar)
     for(g in 1:ngroup){
       k=randpartvec[g]
       X_g <- Xsup[Ncum[g,1]:Ncum[g,2],]
-      Xsupcent[Ncum[g,1]:Ncum[g,2],]=X_g-(matrix(tau_ks[k,],ncol=nvar,nrow=N_gs[g],byrow=TRUE))
+      Xsupcent[Ncum[g,1]:Ncum[g,2],]=sweep(X_g,2,tau_ks[k,],check.margin = FALSE)
     }
     
     Lambda_ks <- matrix(list(NA),nrow = 1, ncol=nclust)
@@ -404,14 +401,14 @@ MixtureMG_FA_loadingsandintercepts <- function(Xsup,N_gs,nclust,nfactors,Maxiter
       for(k2 in 1:nclust){
         lambda_k=Lambda_ks[[k2]]
         Phi_gks[[g,k2]]=diag(nfactors)
-        X_c=X_g-t(matrix(tau_ks[k2,],ncol=N_gs[g],nrow=nvar))
+        X_c=sweep(X_g,2,tau_ks[k2,],check.margin = FALSE)
         udv=svd(X_c%*%lambda_k)
         U=udv$u
         V=udv$v
         Fscores=U[,seq_len(nfactors),drop=FALSE]%*%t(V) # compute component scores as initial estimates of factor scores
         Fvar=apply(Fscores,2,var)
         Fscores=scale(Fscores,center=FALSE,scale=sqrt(Fvar))
-        alpha_gks[[g,k2]] <- apply(Fscores,2,mean)
+        alpha_gks[[g,k2]] <- colMeans(Fscores)
       }
     }
       
@@ -440,14 +437,12 @@ MixtureMG_FA_loadingsandintercepts <- function(Xsup,N_gs,nclust,nfactors,Maxiter
       X_g <- Xsup[Ncum[g,1]:Ncum[g,2],]
       for(k in 1:nclust){
         lambda_k=Lambda_ks[[k]]
-        # if(N_gks[g,k]!=0){
-        Xc_gk=X_g-(matrix(tau_ks[k,]+alpha_gks[[g,k]]%*%t(lambda_k),ncol=nvar,nrow=N_gs[g],byrow=TRUE))
-        S_gk=(1/N_gs[g])*(t(Xc_gk)%*%Xc_gk)
+        tlambda_k=t(lambda_k)
+        # Xc_gk=X_g-(matrix(tau_ks[k,]+alpha_gks[[g,k]]%*%t(lambda_k),ncol=nvar,nrow=N_gs[g],byrow=TRUE))
+        Xc_gk=sweep(X_g,2,tau_ks[k,]+alpha_gks[[g,k]]%*%tlambda_k,check.margin = FALSE)
+        S_gk=(1/N_gs[g])*crossprod(Xc_gk,Xc_gk) #S_gk=(1/N_gs[g])*(t(Xc_gk)%*%Xc_gk) 
         S_gks[[g,k]] <- S_gk
         S_g=S_g+N_gks[g,k]*S_gk
-        # } else {
-        #   S_gks[[g,k]] <- matrix(0,nvar,nvar)
-        # }
       }
       S_gs[[g]] <- (1/N_gs[g])*S_g
     }
@@ -457,8 +452,7 @@ MixtureMG_FA_loadingsandintercepts <- function(Xsup,N_gs,nclust,nfactors,Maxiter
     for(g in 1:ngroup){
       for(k in 1:nclust){
         logdet_sigma_gk=log(det(Sigma_gks[[g,k]]))
-        invSigma_gk=invSigma_gks[[g,k]]
-        loglik_gk=-(1/2)*N_gs[g]*(nvar*log(2*pi)+logdet_sigma_gk+sum(diag(S_gks[[g,k]]%*%invSigma_gk)))
+        loglik_gk=-(1/2)*N_gs[g]*(nvar*log(2*pi)+logdet_sigma_gk+sum(S_gks[[g,k]]*invSigma_gks[[g,k]])) # sum(S_gks[[g,k]]*invSigma_gks[[g,k]])=sum(diag(S_gks[[g,k]]%*%invSigma_gks[[g,k]]))
         loglik_gks[g,k]=loglik_gk
       }
     }
@@ -493,27 +487,27 @@ MixtureMG_FA_loadingsandintercepts <- function(Xsup,N_gs,nclust,nfactors,Maxiter
       
       
       N_gks=diag(N_gs[,1])%*%z_gks
-      N_ks=apply(N_gks,2,sum)
+      N_ks=colSums(N_gks)
       
       
       # update mixing proportions
-      pi_ks=(1/ngroup)*apply(z_gks,2,sum)
+      pi_ks=(1/ngroup)*colSums(z_gks)
       
       S_gks <- matrix(list(NA),nrow = ngroup, ncol = nclust)
       S_gs <- matrix(list(NA),nrow = ngroup, ncol = 1)
+      alpha_tlambda_gks <- matrix(list(NA),nrow = ngroup, ncol = nclust)
       for(g in 1:ngroup){
         S_g=matrix(0,nvar,nvar)
-	      X_g <- Xsup[Ncum[g,1]:Ncum[g,2],]
+        X_g <- Xsup[Ncum[g,1]:Ncum[g,2],]
         for(k in 1:nclust){
           lambda_k=Lambda_ks[[k]]
-          # if(N_gks[g,k]!=0){
-          Xc_gk=X_g-(matrix(tau_ks[k,]+alpha_gks[[g,k]]%*%t(lambda_k),ncol=nvar,nrow=N_gs[g],byrow=TRUE))
-          S_gk=(1/N_gs[g])*(t(Xc_gk)%*%Xc_gk)
+          tlambda_k=t(lambda_k)
+          alpha_tlambda_gks[[g,k]]=alpha_gks[[g,k]]%*%tlambda_k
+          Xc_gk=sweep(X_g,2,tau_ks[k,]+alpha_tlambda_gks[[g,k]],check.margin = FALSE)
+          #S_gk=(1/N_gs[g])*(t(Xc_gk)%*%Xc_gk) 
+          S_gk=(1/N_gs[g])*crossprod(Xc_gk,Xc_gk)
           S_gks[[g,k]] <- S_gk
           S_g=S_g+N_gks[g,k]*S_gk
-          # } else {
-          #   S_gks[[g,k]] <- matrix(0,nvar,nvar)
-          # }
         }
         S_gs[[g]] <- (1/N_gs[g])*S_g
       }
@@ -533,7 +527,7 @@ MixtureMG_FA_loadingsandintercepts <- function(Xsup,N_gs,nclust,nfactors,Maxiter
           S_gk=S_gks[[g,k]]
           theta_gk=phi_gk-beta_gk%*%lambda_k%*%phi_gk+beta_gk%*%S_gk%*%t(beta_gk)
           Theta_gks[[g,k]]=theta_gk
-          meanexpEta_gks[[g,k]]=(mu_gs[g,]-tau_ks[k,]-alpha_gks[[g,k]]%*%t(lambda_k))%*%t(beta_gk)
+          meanexpEta_gks[[g,k]]=(mu_gs[g,]-tau_ks[k,]-alpha_tlambda_gks[[g,k]])%*%t(beta_gk)
           #meanexpEta_gs[[g]]=meanexpEta_gs[[g]]+(N_gks[g,k]/N_gs[g])*meanexpEta_gks[[g,k]]
         }
       }
@@ -555,14 +549,12 @@ MixtureMG_FA_loadingsandintercepts <- function(Xsup,N_gs,nclust,nfactors,Maxiter
         X_g <- Xsup[Ncum[g,1]:Ncum[g,2],]
         for(k in 1:nclust){
           lambda_k=Lambda_ks[[k]]
-          # if(N_gks[g,k]!=0){
-          Xc_gk=X_g-(matrix(tau_ks[k,]+alpha_gks[[g,k]]%*%t(lambda_k),ncol=nvar,nrow=N_gs[g],byrow=TRUE))
-          S_gk=(1/N_gs[g])*(t(Xc_gk)%*%Xc_gk)
+          tlambda_k=t(lambda_k)
+          Xc_gk=sweep(X_g,2,tau_ks[k,]+alpha_gks[[g,k]]%*%tlambda_k,check.margin = FALSE)
+          #S_gk=(1/N_gs[g])*(t(Xc_gk)%*%Xc_gk) 
+          S_gk=(1/N_gs[g])*crossprod(Xc_gk,Xc_gk)
           S_gks[[g,k]] <- S_gk
           S_g=S_g+N_gks[g,k]*S_gk
-          # } else {
-          #   S_gks[[g,k]] <- matrix(0,nvar,nvar)
-          # }
         }
         S_gs[[g]] <- (1/N_gs[g])*S_g
       }
@@ -574,8 +566,7 @@ MixtureMG_FA_loadingsandintercepts <- function(Xsup,N_gs,nclust,nfactors,Maxiter
       for(g in 1:ngroup){
         for(k in 1:nclust){
           logdet_sigma_gk=log(det(Sigma_gks[[g,k]]))
-          invSigma_gk=invSigma_gks[[g,k]]
-          loglik_gk=-(1/2)*N_gs[g]*(nvar*log(2*pi)+logdet_sigma_gk+sum(diag(S_gks[[g,k]]%*%invSigma_gk)))
+          loglik_gk=-(1/2)*N_gs[g]*(nvar*log(2*pi)+logdet_sigma_gk+sum(S_gks[[g,k]]*invSigma_gks[[g,k]])) # sum(S_gks[[g,k]]*invSigma_gks[[g,k]])=sum(diag(S_gks[[g,k]]%*%invSigma_gks[[g,k]]))
           loglik_gks[g,k]=loglik_gk
           loglik_gksw[g,k]=log(pi_ks[k])+loglik_gk
         }
@@ -694,27 +685,27 @@ MixtureMG_FA_loadingsandintercepts <- function(Xsup,N_gs,nclust,nfactors,Maxiter
     
     
     N_gks=diag(N_gs[,1])%*%z_gks
-    N_ks=apply(N_gks,2,sum)
+    N_ks=colSums(N_gks)
     
     # update mixing proportions
-    pi_ks=(1/ngroup)*apply(z_gks,2,sum)
+    pi_ks=(1/ngroup)*colSums(z_gks)
     
     
     S_gks <- matrix(list(NA),nrow = ngroup, ncol = nclust)
     S_gs <- matrix(list(NA),nrow = ngroup, ncol = 1)
+    alpha_tlambda_gks <- matrix(list(NA),nrow = ngroup, ncol = nclust)
     for(g in 1:ngroup){
       S_g=matrix(0,nvar,nvar)
       X_g <- Xsup[Ncum[g,1]:Ncum[g,2],]
       for(k in 1:nclust){
         lambda_k=Lambda_ks[[k]]
-        # if(N_gks[g,k]!=0){
-        Xc_gk=X_g-(matrix(tau_ks[k,]+alpha_gks[[g,k]]%*%t(lambda_k),ncol=nvar,nrow=N_gs[g],byrow=TRUE))
-        S_gk=(1/N_gs[g])*(t(Xc_gk)%*%Xc_gk)
+        tlambda_k=t(lambda_k)
+        alpha_tlambda_gks[[g,k]]=alpha_gks[[g,k]]%*%tlambda_k
+        Xc_gk=sweep(X_g,2,tau_ks[k,]+alpha_tlambda_gks[[g,k]],check.margin = FALSE)
+        #S_gk=(1/N_gs[g])*(t(Xc_gk)%*%Xc_gk) 
+        S_gk=(1/N_gs[g])*crossprod(Xc_gk,Xc_gk)
         S_gks[[g,k]] <- S_gk
         S_g=S_g+N_gks[g,k]*S_gk
-        # } else {
-        #   S_gks[[g,k]] <- matrix(0,nvar,nvar)
-        # }
       }
       S_gs[[g]] <- (1/N_gs[g])*S_g
     }
@@ -734,7 +725,7 @@ MixtureMG_FA_loadingsandintercepts <- function(Xsup,N_gs,nclust,nfactors,Maxiter
         S_gk=S_gks[[g,k]]
         theta_gk=phi_gk-beta_gk%*%lambda_k%*%phi_gk+beta_gk%*%S_gk%*%t(beta_gk)
         Theta_gks[[g,k]]=theta_gk
-        meanexpEta_gks[[g,k]]=(mu_gs[g,]-tau_ks[k,]-alpha_gks[[g,k]]%*%t(lambda_k))%*%t(beta_gk)
+        meanexpEta_gks[[g,k]]=(mu_gs[g,]-tau_ks[k,]-alpha_tlambda_gks[[g,k]])%*%t(beta_gk)
         #meanexpEta_gs[[g]]=meanexpEta_gs[[g]]+(N_gks[g,k]/N_gs[g])*meanexpEta_gks[[g,k]]
       }
     }
@@ -756,14 +747,12 @@ MixtureMG_FA_loadingsandintercepts <- function(Xsup,N_gs,nclust,nfactors,Maxiter
       X_g <- Xsup[Ncum[g,1]:Ncum[g,2],]
       for(k in 1:nclust){
         lambda_k=Lambda_ks[[k]]
-        # if(N_gks[g,k]!=0){
-        Xc_gk=X_g-(matrix(tau_ks[k,]+alpha_gks[[g,k]]%*%t(lambda_k),ncol=nvar,nrow=N_gs[g],byrow=TRUE))
-        S_gk=(1/N_gs[g])*(t(Xc_gk)%*%Xc_gk)
+        tlambda_k=t(lambda_k)
+        Xc_gk=sweep(X_g,2,tau_ks[k,]+alpha_gks[[g,k]]%*%tlambda_k,check.margin = FALSE)
+        #S_gk=(1/N_gs[g])*(t(Xc_gk)%*%Xc_gk) 
+        S_gk=(1/N_gs[g])*crossprod(Xc_gk,Xc_gk)
         S_gks[[g,k]] <- S_gk
         S_g=S_g+N_gks[g,k]*S_gk
-        # } else {
-        #   S_gks[[g,k]] <- matrix(0,nvar,nvar)
-        # }
       }
       S_gs[[g]] <- (1/N_gs[g])*S_g
     }
@@ -774,8 +763,7 @@ MixtureMG_FA_loadingsandintercepts <- function(Xsup,N_gs,nclust,nfactors,Maxiter
     for(g in 1:ngroup){
       for(k in 1:nclust){
         logdet_sigma_gk=log(det(Sigma_gks[[g,k]]))
-        invSigma_gk=invSigma_gks[[g,k]]
-        loglik_gk=-(1/2)*N_gs[g]*(nvar*log(2*pi)+logdet_sigma_gk+sum(diag(S_gks[[g,k]]%*%invSigma_gk)))
+        loglik_gk=-(1/2)*N_gs[g]*(nvar*log(2*pi)+logdet_sigma_gk+sum(S_gks[[g,k]]*invSigma_gks[[g,k]])) # sum(S_gks[[g,k]]*invSigma_gks[[g,k]])=sum(diag(S_gks[[g,k]]%*%invSigma_gks[[g,k]]))
         loglik_gks[g,k]=loglik_gk
         loglik_gksw[g,k]=log(pi_ks[k])+loglik_gk
       }
@@ -879,9 +867,11 @@ MixtureMG_FA_loadingsandintercepts <- function(Xsup,N_gs,nclust,nfactors,Maxiter
       suminvSigma=matrix(0,nvar,nvar)
       summeansminusalphaLambdainvSigma=matrix(0,1,nvar)
       for(g in 1:ngroup){
-        invSigma_gk=invSigma_gks[[g,k]]
+        if(N_gks[g,k]>0){
+          invSigma_gk=invSigma_gks[[g,k]]
         summeansminusalphaLambdainvSigma=summeansminusalphaLambdainvSigma+N_gks[g,k]*(mu_gs[g,]-alpha_gks[[g,k]]%*%t(lambda_k))%*%invSigma_gk
         suminvSigma=suminvSigma+N_gks[g,k]*invSigma_gk
+        }
       }
       tau_ks[k,]=t(solve(suminvSigma,t(summeansminusalphaLambdainvSigma)))
     }
@@ -923,9 +913,9 @@ UpdPostProb <- function(pi_ks, loglik_gks, ngroup, nclust, nfact){
   }
   
   # divide by the rowwise sum of the above calculated part 
-  z_gks <- diag(1/apply(z_gks,1,sum))%*%z_gks
+  z_gks <- diag(1/rowSums(z_gks))%*%z_gks
   z_gks <- round(z_gks,digits=16)
-  z_gks <- diag(1/apply(z_gks,1,sum))%*%z_gks
+  z_gks <- diag(1/rowSums(z_gks))%*%z_gks
   
   return(z_gks)
 }
@@ -935,7 +925,7 @@ UpdPostProb <- function(pi_ks, loglik_gks, ngroup, nclust, nfact){
 MixtureMG_FA_loadingsandintercepts_Mstep <- function(S_gs,S_gks,N_gs,nvar,nclust,nfactors,design,N_gks,Beta_gks,Theta_gks,meanexpEta_gks,Lambda_ks,Psi_gs,Phi_gks,mu_gs,tau_ks,alpha_gks){
   nractivatedconstraints <- 0
   ngroup <- length(N_gs)
-  N_ks=apply(N_gks,2,sum)
+  N_ks=colSums(N_gks)
   
   invPsi_gs <- matrix(list(NA), nrow = ngroup, ncol = 1)
   for(g in 1:ngroup){
@@ -952,9 +942,11 @@ MixtureMG_FA_loadingsandintercepts_Mstep <- function(S_gs,S_gks,N_gs,nvar,nclust
       suminvPsi=matrix(0,nvar,nvar)
       summeansminusalphaLambdainvPsi=matrix(0,1,nvar)
       for(g in 1:ngroup){
-        invPsi_g=invPsi_gs[[g]]
-        summeansminusalphaLambdainvPsi=summeansminusalphaLambdainvPsi+N_gks[g,k]*(mu_gs[g,]-alpha_gks[[g,k]]%*%tlambda_k-meanexpEta_gks[[g,k]]%*%tlambda_k)%*%invPsi_g
-        suminvPsi=suminvPsi+N_gks[g,k]*invPsi_g
+        if(N_gks[g,k]>0){
+          invPsi_g=invPsi_gs[[g]]
+          summeansminusalphaLambdainvPsi=summeansminusalphaLambdainvPsi+N_gks[g,k]*(mu_gs[g,]-alpha_gks[[g,k]]%*%tlambda_k-meanexpEta_gks[[g,k]]%*%tlambda_k)%*%invPsi_g
+          suminvPsi=suminvPsi+N_gks[g,k]*invPsi_g
+        }
       }
       tau_ks[k,]=t(solve(suminvPsi,t(summeansminusalphaLambdainvPsi)))
     }
@@ -972,32 +964,38 @@ MixtureMG_FA_loadingsandintercepts_Mstep <- function(S_gs,S_gks,N_gs,nvar,nclust
     }
   }
   
+  
   # update factor loadings
   for(k in 1:nclust){
     if(N_ks[k]>0){
       lambda_k=matrix(0,nvar,nfactors)
       for(j in 1:nvar){
         nfactors_j=sum(design[j,])
+        indfactors_j=(design[j,]==1)
         sumSbeta=matrix(0,1,nfactors_j)
         sumthetaalpha=matrix(0,nfactors_j,nfactors_j)
         summeansalpha=matrix(0,1,nfactors_j)
         for(g in 1:ngroup){
-          psi_g=Psi_gs[[g]]
-          S_gk=S_gks[[g,k]]
-          beta_gk=Beta_gks[[g,k]]
-          beta_gk=beta_gk[design[j,]==1, ,drop=FALSE]
-          sumSbeta=sumSbeta+(N_gks[g,k]/psi_g[j,j])*S_gk[j,]%*%t(beta_gk)
-          theta_gk=Theta_gks[[g,k]]
-          theta_gk=theta_gk[design[j,]==1,design[j,]==1]
-          alpha_gk=alpha_gks[[g,k]]
-          alpha_gk=alpha_gk[design[j,]==1]
-          meanexpeta_gk=meanexpEta_gks[[g,k]]
-          meanexpeta_gk=meanexpeta_gk[design[j,]==1]
-          talpha_gk=t(alpha_gk)
-          sumthetaalpha=sumthetaalpha+(N_gks[g,k]/psi_g[j,j])*(theta_gk+alpha_gk%*%talpha_gk+meanexpeta_gk%*%talpha_gk)
-          summeansalpha=summeansalpha+(N_gks[g,k]/psi_g[j,j])*((mu_gs[g,j]-tau_ks[k,j])%*%alpha_gk)
+          if(N_gks[g,k]>0){
+            psi_g=Psi_gs[[g]]
+            S_gk=S_gks[[g,k]]
+            beta_gk=Beta_gks[[g,k]]
+            theta_gk=Theta_gks[[g,k]]
+            alpha_gk=alpha_gks[[g,k]]
+            meanexpeta_gk=meanexpEta_gks[[g,k]]
+            #if(nfactors_j<nfactors){
+            beta_gk=beta_gk[indfactors_j, ,drop=FALSE]
+            theta_gk=theta_gk[indfactors_j,indfactors_j]
+            alpha_gk=alpha_gk[indfactors_j]
+            meanexpeta_gk=meanexpeta_gk[indfactors_j]
+            #}
+            talpha_gk=t(alpha_gk)
+            sumSbeta=sumSbeta+(N_gks[g,k]/psi_g[j,j])*S_gk[j,]%*%t(beta_gk)
+            sumthetaalpha=sumthetaalpha+(N_gks[g,k]/psi_g[j,j])*(theta_gk+alpha_gk%*%talpha_gk+meanexpeta_gk%*%talpha_gk)
+            summeansalpha=summeansalpha+(N_gks[g,k]/psi_g[j,j])*((mu_gs[g,j]-tau_ks[k,j])%*%alpha_gk)
+          }
         }
-        lambda_k[j,design[j,]==1]= t(solve(sumthetaalpha,t(sumSbeta+summeansalpha)))
+        lambda_k[j,indfactors_j]= t(solve(sumthetaalpha,t(sumSbeta+summeansalpha)))
       }
       Lambda_ks[[k]]=lambda_k
     }
@@ -1075,8 +1073,8 @@ adjrandindex <- function(part1,part2){
   
   T = t(A)%*%B
   N = sum(T)
-  Tc = apply(T,2,sum)
-  Tr = apply(T,1,sum)
+  Tc = colSums(T)
+  Tr = rowSums(T)
   a = (sum(T^2) - N)/2
   b = (sum(Tr^2) - sum(T^2))/2
   c = (sum(Tc^2) - sum(T^2))/2

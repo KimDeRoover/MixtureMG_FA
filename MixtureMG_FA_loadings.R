@@ -59,7 +59,7 @@ MixtureMG_FA_loadings <- function(dat,N_gs,nclust,nfactors,Maxiter = 1000,start 
     Xsupcent <- matrix(0,N,nvar)
     for(g in 1:ngroup){
       X_g <- Xsup[Ncum[g,1]:Ncum[g,2],]
-      mu_gs[g,] <- apply(X_g,2,mean)
+      mu_gs[g,] <- colMeans(X_g)
       Xsupcent[Ncum[g,1]:Ncum[g,2],]=scale(X_g,scale = FALSE)
     }
     Xsup <- Xsupcent
@@ -125,14 +125,14 @@ MixtureMG_FA_loadings <- function(dat,N_gs,nclust,nfactors,Maxiter = 1000,start 
         randpartvec=randpartvecs[trialstart,];
         if(nclust>1){
           z_gks=IM[randpartvec,]
-          pi_ks=(1/ngroup)*apply(z_gks,2,sum)
+          pi_ks=(1/ngroup)*colSums(z_gks)
         }
         else {
           z_gks=t(randpartvec)
           pi_ks=1
         }
         N_gks=diag(N_gs[,1])%*%z_gks
-        N_ks=apply(N_gks,2,sum)
+        N_ks=colSums(N_gks)
         
         Lambda_ks <- matrix(list(NA),nrow = 1, ncol=nclust)
         uniq_ks <- matrix(0,nclust,nvar)
@@ -241,8 +241,7 @@ MixtureMG_FA_loadings <- function(dat,N_gs,nclust,nfactors,Maxiter = 1000,start 
           # }
           for(k in 1:nclust){
             logdet_sigma_gk=log(det(Sigma_gks[[g,k]]))
-            invSigma_gk=invSigma_gks[[g,k]]
-            loglik_gk=-(1/2)*N_gs[g]*(nvar*log(2*pi)+logdet_sigma_gk+sum(diag(S_gs[[g]]%*%invSigma_gk)))
+            loglik_gk=-(1/2)*N_gs[g]*(nvar*log(2*pi)+logdet_sigma_gk+sum(S_gs[[g]]*invSigma_gks[[g,k]])) # sum(S_gs[[g]]*invSigma_gks[[g,k]])=sum(sum(diag(S_gs[[g]]%*%invSigma_gks[[g,k]]))
             loglik_gks[g,k]=loglik_gk
             loglik_gksw[g,k]=log(pi_ks[k])+loglik_gk
           }
@@ -321,7 +320,7 @@ MixtureMG_FA_loadings <- function(dat,N_gs,nclust,nfactors,Maxiter = 1000,start 
     # initialize prior and posterior classification probabilities
     if(nclust>1){
       z_gks=IM[randpartvec,]
-      pi_ks=(1/ngroup)*apply(z_gks,2,sum)
+      pi_ks=(1/ngroup)*colSums(z_gks)
     }
     else {
       z_gks=t(randpartvec)
@@ -352,8 +351,7 @@ MixtureMG_FA_loadings <- function(dat,N_gs,nclust,nfactors,Maxiter = 1000,start 
     for(g in 1:ngroup){
       for(k in 1:nclust){
         logdet_sigma_gk=log(det(Sigma_gks[[g,k]]))
-        invSigma_gk=invSigma_gks[[g,k]]
-        loglik_gk=-(1/2)*N_gs[g]*(nvar*log(2*pi)+logdet_sigma_gk+sum(diag(S_gs[[g]]%*%invSigma_gk)))
+        loglik_gk=-(1/2)*N_gs[g]*(nvar*log(2*pi)+logdet_sigma_gk+sum(S_gs[[g]]*invSigma_gks[[g,k]])) # sum(S_gs[[g]]*invSigma_gks[[g,k]])=sum(sum(diag(S_gs[[g]]%*%invSigma_gks[[g,k]]))
         loglik_gks[g,k]=loglik_gk
       }
     }
@@ -385,10 +383,10 @@ MixtureMG_FA_loadings <- function(dat,N_gs,nclust,nfactors,Maxiter = 1000,start 
       
       
       N_gks=diag(N_gs[,1])%*%z_gks
-      N_ks=apply(N_gks,2,sum)
+      N_ks=colSums(N_gks)
       
       # update mixing proportions
-      pi_ks=(1/ngroup)*apply(z_gks,2,sum)
+      pi_ks=(1/ngroup)*colSums(z_gks)
       
       # compute Beta_gks and theta_gks
       Beta_gks <- matrix(list(NA), nrow = ngroup, ncol = nclust)
@@ -421,8 +419,7 @@ MixtureMG_FA_loadings <- function(dat,N_gs,nclust,nfactors,Maxiter = 1000,start 
       for(g in 1:ngroup){
         for(k in 1:nclust){
           logdet_sigma_gk=log(det(Sigma_gks[[g,k]]))
-          invSigma_gk=invSigma_gks[[g,k]]
-          loglik_gk=-(1/2)*N_gs[g]*(nvar*log(2*pi)+logdet_sigma_gk+sum(diag(S_gs[[g]]%*%invSigma_gk)))
+          loglik_gk=-(1/2)*N_gs[g]*(nvar*log(2*pi)+logdet_sigma_gk+sum(S_gs[[g]]*invSigma_gks[[g,k]])) # sum(S_gs[[g]]*invSigma_gks[[g,k]])=sum(sum(diag(S_gs[[g]]%*%invSigma_gks[[g,k]]))
           loglik_gks[g,k]=loglik_gk
           loglik_gksw[g,k]=log(pi_ks[k])+loglik_gk
         }
@@ -527,10 +524,10 @@ MixtureMG_FA_loadings <- function(dat,N_gs,nclust,nfactors,Maxiter = 1000,start 
     
     
     N_gks=diag(N_gs[,1])%*%z_gks
-    N_ks=apply(N_gks,2,sum)
+    N_ks=colSums(N_gks)
     
     # update mixing proportions
-    pi_ks=(1/ngroup)*apply(z_gks,2,sum)
+    pi_ks=(1/ngroup)*colSums(z_gks)
     
     # compute Beta_gks and theta_gks
     Beta_gks <- matrix(list(NA), nrow = ngroup, ncol = nclust)
@@ -563,8 +560,7 @@ MixtureMG_FA_loadings <- function(dat,N_gs,nclust,nfactors,Maxiter = 1000,start 
     for(g in 1:ngroup){
       for(k in 1:nclust){
         logdet_sigma_gk=log(det(Sigma_gks[[g,k]]))
-        invSigma_gk=invSigma_gks[[g,k]]
-        loglik_gk=-(1/2)*N_gs[g]*(nvar*log(2*pi)+logdet_sigma_gk+sum(diag(S_gs[[g]]%*%invSigma_gk)))
+        loglik_gk=-(1/2)*N_gs[g]*(nvar*log(2*pi)+logdet_sigma_gk+sum(S_gs[[g]]*invSigma_gks[[g,k]])) # sum(S_gs[[g]]*invSigma_gks[[g,k]])=sum(sum(diag(S_gs[[g]]%*%invSigma_gks[[g,k]]))
         loglik_gks[g,k]=loglik_gk
         loglik_gksw[g,k]=log(pi_ks[k])+loglik_gk
       }
@@ -683,9 +679,9 @@ UpdPostProb <- function(pi_ks, loglik_gks, ngroup, nclust, nfact){
   }
   
   # divide by the rowwise sum of the above calculated part 
-  z_gks <- diag(1/apply(z_gks,1,sum))%*%z_gks
+  z_gks <- diag(1/rowSums(z_gks))%*%z_gks
   z_gks <- round(z_gks,digits=16)
-  z_gks <- diag(1/apply(z_gks,1,sum))%*%z_gks
+  z_gks <- diag(1/rowSums(z_gks))%*%z_gks
   
   return(z_gks)
 }
@@ -695,7 +691,7 @@ UpdPostProb <- function(pi_ks, loglik_gks, ngroup, nclust, nfact){
 MixtureMG_FA_Mstep <- function(S_gs,N_gs,nvar,nclust,nfactors,design,N_gks,Beta_gks,Theta_gks,Lambda_ks,Psi_gs,Phi_gks){
   nractivatedconstraints <- 0
   ngroup <- length(N_gs)
-  N_ks=apply(N_gks,2,sum)
+  N_ks=colSums(N_gks)
   
   # update cluster-specific loadings
   for(k in 1:nclust){
@@ -707,14 +703,16 @@ MixtureMG_FA_Mstep <- function(S_gs,N_gs,nvar,nclust,nfactors,design,N_gks,Beta_
         sumSbeta_k=matrix(0,1,nfactors_j)
         sumtheta_k=matrix(0,nfactors_j,nfactors_j)
         for(g in 1:ngroup){
-          psi_g=Psi_gs[[g]]
-          S_g=S_gs[[g]]
-          beta_gk=Beta_gks[[g,k]]
-          beta_gk=beta_gk[d_j, ,drop=FALSE]
-          theta_gk=Theta_gks[[g,k]]
-          theta_gk=theta_gk[d_j,d_j]
-          sumSbeta_k=sumSbeta_k+(N_gks[g,k]/psi_g[j,j])*S_g[j,]%*%t(beta_gk)
-          sumtheta_k=sumtheta_k+(N_gks[g,k]/psi_g[j,j])*theta_gk
+          if(N_gks[g,k]>0){
+            psi_g=Psi_gs[[g]]
+            S_g=S_gs[[g]]
+            beta_gk=Beta_gks[[g,k]]
+            beta_gk=beta_gk[d_j, ,drop=FALSE]
+            theta_gk=Theta_gks[[g,k]]
+            theta_gk=theta_gk[d_j,d_j]
+            sumSbeta_k=sumSbeta_k+(N_gks[g,k]/psi_g[j,j])*S_g[j,]%*%t(beta_gk)
+            sumtheta_k=sumtheta_k+(N_gks[g,k]/psi_g[j,j])*theta_gk
+          }
         }
         lambda_k[j,d_j]= t(solve(sumtheta_k,t(sumSbeta_k)))
       }
@@ -800,8 +798,8 @@ adjrandindex <- function(part1,part2){
   
   T = t(A)%*%B
   N = sum(T)
-  Tc = apply(T,2,sum)
-  Tr = apply(T,1,sum)
+  Tc = colSums(T)
+  Tr = rowSums(T)
   a = (sum(T^2) - N)/2
   b = (sum(Tr^2) - sum(T^2))/2
   c = (sum(Tc^2) - sum(T^2))/2

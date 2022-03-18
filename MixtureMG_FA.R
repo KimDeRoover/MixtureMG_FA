@@ -28,7 +28,7 @@
 #          Access parameter values of solution with preferred number of clusters as, for example, OutputObject$MMGFA_solutions$"2.clusters"
 
 
-MixtureMG_FA <- function(data,cluster.spec,nsclust,nfactors,Maxiter = 5000,nruns = 50,design=0,rotation=0,preselect = 10){
+MixtureMG_FA <- function(data,cluster.spec,nsclust,nfactors,Maxiter = 5000,nruns = 25,design=0,rotation=0,preselect = 10){
   if(rotation!=0){
     library("GPArotation")
   }

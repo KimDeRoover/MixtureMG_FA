@@ -1,37 +1,38 @@
-# Mixture multigroup factor analysis for intercept (non-)variance
+#' Mixture multigroup factor analysis for intercept (non-)variance
 # ----------------------------------------------------------------
 # Code written by Kim De Roover
-# This version builds on metric invariance across all groups and deals with intercept differences 
-# (finds clusters of groups based on similarity of their intercepts, given the user-specified number of clusters)
-# For model selection, it is advised to use BIC_G (number of groups as sample size) in combination with CHull (see preprint)
-# Please cite publication: https://www.tandfonline.com/doi/full/10.1080/10705511.2020.1866577
+#' This version builds on metric invariance across all groups and deals with intercept differences 
+#' (finds clusters of groups based on similarity of their intercepts, given the user-specified number of clusters)
+#' For model selection, it is advised to use BIC_G (number of groups as sample size) in combination with CHull (see preprint)
+#' Please cite publication: https://www.tandfonline.com/doi/full/10.1080/10705511.2020.1866577
 
-# INPUT:
-# Xsup = data matrix for all groups (rows are subjects nested within groups, columns are the variables to be factor-analyzed)
-# N_gs = vector with number of subjects for each group (in the same order as they appear in the data matrix)
-# nclust = user-specified number of clusters
-# nfactors = user-specified number of factors
-# Maxiter = maximum number of iterations
-# start = type of start (start = 1: pre-selected random starts, start = 2: start from a user-specified startpartition)
-# nruns = number of starts (based on pre-selected random partitions when start = 1)
-# preselect = percentage of best starts taken in pre-selection (increase to speed up startprocedure)
-# design = matrix indicating position of zero loadings with '0' and non-zero loadings with '1' (specify for CFA, leave unspecified for EFA)
-# startpartition = partition of groups to start from (use with start = 2 and nruns = 1)
+#' INPUT:
+#' @param Xsup = data matrix for all groups (rows are subjects nested within groups, columns are the variables to be factor-analyzed)
+#' @param N_gs = vector with number of subjects for each group (in the same order as they appear in the data matrix)
+#' @param nclust = user-specified number of clusters
+#' @param nfactors = user-specified number of factors
+#' @param Maxiter = maximum number of iterations
+#' @param start = type of start (start = 1: pre-selected random starts, start = 2: start from a user-specified startpartition)
+#' @param nruns = number of starts (based on pre-selected random partitions when start = 1)
+#' @param preselect = percentage of best starts taken in pre-selection (increase to speed up startprocedure)
+#' @param design = matrix indicating position of zero loadings with '0' and non-zero loadings with '1' (specify for CFA, leave unspecified for EFA)
+#' @param startpartition = partition of groups to start from (use with start = 2 and nruns = 1)
 
-# OUTPUT:
-# z_gks = cluster memberships of groups (posterior classification probabilities)
-# pi_ks= mixing proportions (prior classification probabilities)
-# Lambda = invariant loadings
-# Psi_gs = group-specific unique variances, access loadings of group g via Psi_gs[[g]]
-# Phi_gs = group-specific factor (co)variances, access (co)variances of group g via Phi_gs[[g]]
-# tau_ks = group-specific means, access intercepts of cluster k via tau_ks[k,]
-# alpha_gks = group- and cluster-specific factor means, access factor means of group g in cluster k via alpha_gks[[g,k]]
-# bestloglik = loglikelihood of best start
-# logliks = loglikelihoods of all starts
-# nrpars = number of free parameters, to be used for model selection in combination with bestloglik
-# convergence = 2 if converged on loglikelihood, 1 if converged on parameter changes, 0 if not converged
-# nractivatedconstraints = number of constraints on the unique variances (across groups) to avoid unique variances approaching zero
+#' OUTPUT:
+#' @return z_gks = cluster memberships of groups (posterior classification probabilities)
+#' @return pi_ks= mixing proportions (prior classification probabilities)
+#' @return Lambda = invariant loadings
+#' @return Psi_gs = group-specific unique variances, access unique variances of group g via Psi_gs[[g]]
+#' @return Phi_gs = group-specific factor (co)variances, access (co)variances of group g via Phi_gs[[g]]
+#' @return tau_ks = cluster-specific intercepts, access intercepts of cluster k via tau_ks[k,]
+#' @return alpha_gks = group- and cluster-specific factor means, access factor means of group g in cluster k via alpha_gks[[g,k]]
+#' @return bestloglik = final loglikelihood, loglikelihood of best start
+#' @return logliks = loglikelihoods of all starts
+#' @return nrpars = number of free parameters, to be used for model selection in combination with bestloglik
+#' @return convergence = 2 if converged on loglikelihood, 1 if converged on parameter changes, 0 if not converged
+#' @return nractivatedconstraints = number of constraints on the unique variances (across groups) to avoid unique variances approaching zero
 
+#' @export
 MixtureMG_FA_intercepts <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,start = 1,nruns = 50,design = 0,preselect = 10,startpartition){
   
   Xsup=as.matrix(Xsup)

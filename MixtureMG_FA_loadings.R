@@ -1,36 +1,37 @@
-# Mixture multigroup factor analysis
+#' Mixture multigroup factor analysis
 # Code written by Kim De Roover
-# Please cite publication: https://doi.apa.org/doi/10.1037/met0000355
-# This version deals with factor loading differences (finds clusters of groups based on similarity of their factor loadings, given the user-specified number of clusters)
-# for model selection, it is advised to use BIC_G (number of groups as sample size) in combination with CHull (see paper)
+#' This version deals with factor loading differences (finds clusters of groups based on similarity of their factor loadings, given the user-specified number of clusters)
+#' for model selection, it is advised to use BIC_G (number of groups as sample size) in combination with CHull (see paper)
+#' Please cite publication: https://doi.apa.org/doi/10.1037/met0000355
+#' 
+#' INPUT:
+#' @param dat = either a matrix of vertically concatenated, group-specific (co)variance matrices; or a matrix containing the vertically concatenated raw data for all groups
+#' @param (where rows are subjects nested within groups, columns are the variables to be factor-analyzed)
+#' @param N_gs = vector with sample size for each group (in the same order as they appear in the data matrix)
+#' @param nclust = user-specified number of clusters
+#' @param nfactors = user-specified number of factors
+#' @param Maxiter = maximum number of iterations
+#' @param start = type of start (start = 1: pre-selected random starts, start = 2: start from a user-specified startpartition)
+#' @param nruns = number of starts (based on pre-selected random partitions when start = 1)
+#' @param preselect = percentage of best starts taken in pre-selection (increase to speed up startprocedure)
+#' @param design = matrix indicating position of zero loadings with '0' and non-zero loadings with '1' (specify for CFA, leave unspecified for EFA)
+#'          (using different design matrices for different clusters is currently not supported)
+#' @param startpartition = partition of groups to start from (use with start = 2 and nruns = 1)
 
-# INPUT:
-# dat = either a matrix of vertically concatenated, group-specific (co)variance matrices; or a matrix containing the vertically concatenated raw data for all groups
-# (where rows are subjects nested within groups, columns are the variables to be factor-analyzed)
-# N_gs = vector with sample size for each group (in the same order as they appear in the data matrix)
-# nclust = user-specified number of clusters
-# nfactors = user-specified number of factors
-# Maxiter = maximum number of iterations
-# start = type of start (start = 1: pre-selected random starts, start = 2: start from a user-specified startpartition)
-# nruns = number of starts (based on pre-selected random partitions when start = 1)
-# preselect = percentage of best starts taken in pre-selection (increase to speed up startprocedure)
-# design = matrix indicating position of zero loadings with '0' and non-zero loadings with '1' (specify for CFA, leave unspecified for EFA)
-#          (using different design matrices for different clusters is currently not supported)
-# startpartition = partition of groups to start from (use with start = 2 and nruns = 1)
+#' OUTPUT:
+#' @return z_gks = cluster memberships of groups (posterior classification probabilities)
+#' @return pi_ks= mixing proportions (prior classification probabilities)
+#' @return Lambda_ks = cluster-specific loadings, access loadings of cluster k via Lambda_ks[[k]]
+#' @return Psi_gs = group-specific unique variances, access loadings of group g via Psi_gs[[g]]
+#' @return Phi_gks = group- and cluster-specific factor (co)variances, access (co)variances of group g in cluster k via Phi_gks[[g,k]]
+#' @return mu_gs = group-specific means, access means of group g via mu_gs[g,]
+#' @return bestloglik = final loglikelihood, loglikelihood of best start
+#' @return logliks = loglikelihoods of all starts
+#' @return nrpars = number of free parameters, to be used for model selection in combination with bestloglik
+#' @return convergence = 2 if converged on loglikelihood, 1 if converged on parameter changes, 0 if not converged
+#' @return nractivatedconstraints = number of constraints on the unique variances (across groups) to avoid unique variances approaching zero
 
-# OUTPUT:
-# z_gks = cluster memberships of groups (posterior classification probabilities)
-# pi_ks= mixing proportions (prior classification probabilities)
-# Lambda_ks = cluster-specific loadings, access loadings of cluster k via Lambda_ks[[k]]
-# Psi_gs = group-specific unique variances, access loadings of group g via Psi_gs[[g]]
-# Phi_gks = group- and cluster-specific factor (co)variances, access (co)variances of group g in cluster k via Phi_gks[[g,k]]
-# mu_gs = group-specific means, access means of group g via mu_gs[g,]
-# bestloglik = loglikelihood of best start
-# logliks = loglikelihoods of all starts
-# nrpars = number of free parameters, to be used for model selection in combination with bestloglik
-# convergence = 2 if converged on loglikelihood, 1 if converged on parameter changes, 0 if not converged
-# nractivatedconstraints = number of constraints on the unique variances (across groups) to avoid unique variances approaching zero
-
+#' @export
 MixtureMG_FA_loadings <- function(dat,N_gs,nclust,nfactors,Maxiter = 1000,start = 1,nruns = 50,design=0,preselect = 10,startpartition){
   
   ngroup <- length(N_gs)
@@ -727,10 +728,12 @@ MixtureMG_FA_Mstep <- function(S_gs,N_gs,nvar,nclust,nfactors,design,N_gks,Beta_
     S_g=S_gs[[g]]
     sum2SbetaB_BthetaB=0;
     for(k in 1:nclust){
-      lambda_k=Lambda_ks[[k]]
-      beta_gk=Beta_gks[[g,k]]
-      theta_gk=Theta_gks[[g,k]]
-      sum2SbetaB_BthetaB=sum2SbetaB_BthetaB+(N_gks[g,k]/N_gs[g])*(2*lambda_k%*%beta_gk%*%S_g-lambda_k%*%theta_gk%*%t(lambda_k)) # modelimplied reduced covariance matrix on sample level, based on old structure matrix and sigma_gk, weighting based on new z_gks
+      if(N_gks[g,k]>0){
+        lambda_k=Lambda_ks[[k]]
+        beta_gk=Beta_gks[[g,k]]
+        theta_gk=Theta_gks[[g,k]]
+        sum2SbetaB_BthetaB=sum2SbetaB_BthetaB+(N_gks[g,k]/N_gs[g])*(2*lambda_k%*%beta_gk%*%S_g-lambda_k%*%theta_gk%*%t(lambda_k)) # modelimplied reduced covariance matrix on sample level, based on old structure matrix and sigma_gk, weighting based on new z_gks
+      }
     }
     psi_g=diag(diag(S_g-sum2SbetaB_BthetaB))
     if (sum(diag(psi_g)<.0001)>0){ # track "heywood" cases

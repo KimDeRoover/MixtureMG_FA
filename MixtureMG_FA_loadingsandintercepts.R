@@ -1,39 +1,39 @@
-# Mixture multigroup factor analysis for loadings and intercept (non-)variance
+#' Mixture multigroup factor analysis for loadings and intercept (non-)variance
 # ----------------------------------------------------------------
-# Code written by Kim De Roover
-# This version builds on configural invariance across all groups (same zero loadings in case of CFA, same number of factors in case of EFA) and deals with differences in loadings and intercepts simultaneously
-# (finds clusters of groups based on similarity of their loadings and intercepts, given the user-specified number of clusters)
-# For model selection, it is advised to use BIC_G (number of groups as sample size) in combination with CHull (see preprint)
-# Please cite publications: https://www.tandfonline.com/doi/full/10.1080/10705511.2020.1866577
-# and https://doi.apa.org/doi/10.1037/met0000355
+#' Code written by Kim De Roover
+#' This version builds on configural invariance across all groups (same zero loadings in case of CFA, same number of factors in case of EFA) and deals with differences in loadings and intercepts simultaneously
+#' (finds clusters of groups based on similarity of their loadings and intercepts, given the user-specified number of clusters)
+#' For model selection, it is advised to use BIC_G (number of groups as sample size) in combination with CHull (see preprint)
+#' Please cite publications: https://www.tandfonline.com/doi/full/10.1080/10705511.2020.1866577
+#' and https://doi.apa.org/doi/10.1037/met0000355
 
-# INPUT:
-# Xsup = data matrix for all groups (rows are subjects nested within groups, columns are the variables to be factor-analyzed)
-# N_gs = vector with number of subjects for each group (in the same order as they appear in the data matrix)
-# nclust = user-specified number of clusters
-# nfactors = user-specified number of factors
-# Maxiter = maximum number of iterations
-# start = type of start (start = 1: pre-selected random starts, start = 2: start from a user-specified startpartition)
-# nruns = number of starts (based on pre-selected random partitions when start = 1)
-# preselect = percentage of best starts taken in pre-selection (increase to speed up startprocedure)
-# design = matrix indicating position of zero loadings with '0' and non-zero loadings with '1' (specify for CFA, leave unspecified for EFA)
-#          (using different design matrices for different clusters is currently not supported)
-# startpartition = partition of groups to start from (use with start = 2 and nruns = 1)
+#' INPUT:
+#' @param Xsup = data matrix for all groups (rows are subjects nested within groups, columns are the variables to be factor-analyzed)
+#' @param N_gs = vector with number of subjects for each group (in the same order as they appear in the data matrix)
+#' @param nclust = user-specified number of clusters
+#' @param nfactors = user-specified number of factors
+#' @param Maxiter = maximum number of iterations
+#' @param start = type of start (start = 1: pre-selected random starts, start = 2: start from a user-specified startpartition)
+#' @param nruns = number of starts (based on pre-selected random partitions when start = 1)
+#' @param' @param preselect = percentage of best starts taken in pre-selection (increase to speed up startprocedure)
+#' @param design = matrix indicating position of zero loadings with '0' and non-zero loadings with '1' (specify for CFA, leave unspecified for EFA) (using different design matrices for different clusters is currently not supported)
+#' @param startpartition = partition of groups to start from (use with start = 2 and nruns = 1)
 
-# OUTPUT:
-# z_gks = cluster memberships of groups (posterior classification probabilities)
-# pi_ks= mixing proportions (prior classification probabilities)
-# Lambda_ks = cluster-specific loadings, access loadings of cluster k via Lambda_ks[[k]]
-# Psi_gs = group-specific unique variances, access loadings of group g via Psi_gs[[g]]
-# Phi_gks = group- and cluster-specific factor (co)variances, access (co)variances of group g in cluster k via Phi_gks[[g,k]]
-# tau_ks = group-specific means, access intercepts of cluster k via tau_ks[k,]
-# alpha_gks = group- and cluster-specific factor means, access factor means of group g in cluster k via alpha_gks[[g,k]]
-# bestloglik = loglikelihood of best start
-# logliks = loglikelihoods of all starts
-# nrpars = number of free parameters, to be used for model selection in combination with bestloglik
-# convergence = 2 if converged on loglikelihood, 1 if converged on parameter changes, 0 if not converged
-# nractivatedconstraints = number of constraints on the unique variances (across groups) to avoid unique variances approaching zero
+#' OUTPUT:
+#' @return z_gks = cluster memberships of groups (posterior classification probabilities)
+#' @return pi_ks= mixing proportions (prior classification probabilities)
+#' @return Lambda_ks = cluster-specific loadings, access loadings of cluster k via Lambda_ks[[k]]
+#' @return Psi_gs = group-specific unique variances, access loadings of group g via Psi_gs[[g]]
+#' @return Phi_gks = group- and cluster-specific factor (co)variances, access (co)variances of group g in cluster k via Phi_gks[[g,k]]
+#' @return tau_ks = group-specific means, access intercepts of cluster k via tau_ks[k,]
+#' @return alpha_gks = group- and cluster-specific factor means, access factor means of group g in cluster k via alpha_gks[[g,k]]
+#' @return bestloglik = loglikelihood of best start
+#' @return logliks = loglikelihoods of all starts
+#' @return nrpars = number of free parameters, to be used for model selection in combination with bestloglik
+#' @return convergence = 2 if converged on loglikelihood, 1 if converged on parameter changes, 0 if not converged
+#' @return nractivatedconstraints = number of constraints on the unique variances (across groups) to avoid unique variances approaching zero
 
+#' @export
 MixtureMG_FA_loadingsandintercepts <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,start = 1,nruns = 50,design = 0,preselect = 10,startpartition){
   
   Xsup=as.matrix(Xsup)
@@ -493,24 +493,24 @@ MixtureMG_FA_loadingsandintercepts <- function(Xsup,N_gs,nclust,nfactors,Maxiter
       # update mixing proportions
       pi_ks=(1/ngroup)*colSums(z_gks)
       
-      S_gks <- matrix(list(NA),nrow = ngroup, ncol = nclust)
-      S_gs <- matrix(list(NA),nrow = ngroup, ncol = 1)
-      alpha_tlambda_gks <- matrix(list(NA),nrow = ngroup, ncol = nclust)
-      for(g in 1:ngroup){
-        S_g=matrix(0,nvar,nvar)
-        X_g <- Xsup[Ncum[g,1]:Ncum[g,2],]
-        for(k in 1:nclust){
-          lambda_k=Lambda_ks[[k]]
-          tlambda_k=t(lambda_k)
-          alpha_tlambda_gks[[g,k]]=alpha_gks[[g,k]]%*%tlambda_k
-          Xc_gk=sweep(X_g,2,tau_ks[k,]+alpha_tlambda_gks[[g,k]],check.margin = FALSE)
-          #S_gk=(1/N_gs[g])*(t(Xc_gk)%*%Xc_gk) 
-          S_gk=(1/N_gs[g])*crossprod(Xc_gk,Xc_gk)
-          S_gks[[g,k]] <- S_gk
-          S_g=S_g+N_gks[g,k]*S_gk
-        }
-        S_gs[[g]] <- (1/N_gs[g])*S_g
-      }
+      # S_gks <- matrix(list(NA),nrow = ngroup, ncol = nclust)
+      # S_gs <- matrix(list(NA),nrow = ngroup, ncol = 1)
+      # alpha_tlambda_gks <- matrix(list(NA),nrow = ngroup, ncol = nclust)
+      # for(g in 1:ngroup){
+      #   S_g=matrix(0,nvar,nvar)
+      #   X_g <- Xsup[Ncum[g,1]:Ncum[g,2],]
+      #   for(k in 1:nclust){
+      #     lambda_k=Lambda_ks[[k]]
+      #     tlambda_k=t(lambda_k)
+      #     alpha_tlambda_gks[[g,k]]=alpha_gks[[g,k]]%*%tlambda_k
+      #     Xc_gk=sweep(X_g,2,tau_ks[k,]+alpha_tlambda_gks[[g,k]],check.margin = FALSE)
+      #     #S_gk=(1/N_gs[g])*(t(Xc_gk)%*%Xc_gk) 
+      #     S_gk=(1/N_gs[g])*crossprod(Xc_gk,Xc_gk)
+      #     S_gks[[g,k]] <- S_gk
+      #     S_g=S_g+N_gks[g,k]*S_gk
+      #   }
+      #   S_gs[[g]] <- (1/N_gs[g])*S_g
+      # }
       
       # compute Beta_gks and theta_gks
       Beta_gks <- matrix(list(NA), nrow = ngroup, ncol = nclust)
@@ -690,25 +690,27 @@ MixtureMG_FA_loadingsandintercepts <- function(Xsup,N_gs,nclust,nfactors,Maxiter
     # update mixing proportions
     pi_ks=(1/ngroup)*colSums(z_gks)
     
-    
-    S_gks <- matrix(list(NA),nrow = ngroup, ncol = nclust)
-    S_gs <- matrix(list(NA),nrow = ngroup, ncol = 1)
-    alpha_tlambda_gks <- matrix(list(NA),nrow = ngroup, ncol = nclust)
-    for(g in 1:ngroup){
-      S_g=matrix(0,nvar,nvar)
-      X_g <- Xsup[Ncum[g,1]:Ncum[g,2],]
-      for(k in 1:nclust){
-        lambda_k=Lambda_ks[[k]]
-        tlambda_k=t(lambda_k)
-        alpha_tlambda_gks[[g,k]]=alpha_gks[[g,k]]%*%tlambda_k
-        Xc_gk=sweep(X_g,2,tau_ks[k,]+alpha_tlambda_gks[[g,k]],check.margin = FALSE)
-        #S_gk=(1/N_gs[g])*(t(Xc_gk)%*%Xc_gk) 
-        S_gk=(1/N_gs[g])*crossprod(Xc_gk,Xc_gk)
-        S_gks[[g,k]] <- S_gk
-        S_g=S_g+N_gks[g,k]*S_gk
+    if(iter==bestiter+1){
+      S_gks <- matrix(list(NA),nrow = ngroup, ncol = nclust)
+      S_gs <- matrix(list(NA),nrow = ngroup, ncol = 1)
+      alpha_tlambda_gks <- matrix(list(NA),nrow = ngroup, ncol = nclust)
+      for(g in 1:ngroup){
+        S_g=matrix(0,nvar,nvar)
+        X_g <- Xsup[Ncum[g,1]:Ncum[g,2],]
+        for(k in 1:nclust){
+          lambda_k=Lambda_ks[[k]]
+          tlambda_k=t(lambda_k)
+          alpha_tlambda_gks[[g,k]]=alpha_gks[[g,k]]%*%tlambda_k
+          Xc_gk=sweep(X_g,2,tau_ks[k,]+alpha_tlambda_gks[[g,k]],check.margin = FALSE)
+          #S_gk=(1/N_gs[g])*(t(Xc_gk)%*%Xc_gk)
+          S_gk=(1/N_gs[g])*crossprod(Xc_gk,Xc_gk)
+          S_gks[[g,k]] <- S_gk
+          S_g=S_g+N_gks[g,k]*S_gk
+        }
+        S_gs[[g]] <- (1/N_gs[g])*S_g
       }
-      S_gs[[g]] <- (1/N_gs[g])*S_g
     }
+    
     
     # compute Beta_gks and theta_gks
     Beta_gks <- matrix(list(NA), nrow = ngroup, ncol = nclust)

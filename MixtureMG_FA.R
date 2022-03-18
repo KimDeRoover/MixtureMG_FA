@@ -184,7 +184,7 @@ MixtureMG_FA <- function(data,cluster.spec,nsclust,nfactors,Maxiter = 5000,nruns
       }
     } 
   }
-  if (is.nan(max(overview))==FALSE){
+  if ((max(overview))>0){
     screeratios=matrix(0,nsclust[2]-nsclust[1]+1,1)
     for(nclust in (nsclust[1]+1):(nsclust[2]-1)){
       LL_nclust=overview[nclust-nsclust[1]+1,2]

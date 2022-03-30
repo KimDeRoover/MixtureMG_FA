@@ -493,24 +493,24 @@ MixtureMG_FA_loadingsandintercepts <- function(Xsup,N_gs,nclust,nfactors,Maxiter
       # update mixing proportions
       pi_ks=(1/ngroup)*colSums(z_gks)
       
-      # S_gks <- matrix(list(NA),nrow = ngroup, ncol = nclust)
-      # S_gs <- matrix(list(NA),nrow = ngroup, ncol = 1)
-      # alpha_tlambda_gks <- matrix(list(NA),nrow = ngroup, ncol = nclust)
-      # for(g in 1:ngroup){
-      #   S_g=matrix(0,nvar,nvar)
-      #   X_g <- Xsup[Ncum[g,1]:Ncum[g,2],]
-      #   for(k in 1:nclust){
-      #     lambda_k=Lambda_ks[[k]]
-      #     tlambda_k=t(lambda_k)
-      #     alpha_tlambda_gks[[g,k]]=alpha_gks[[g,k]]%*%tlambda_k
-      #     Xc_gk=sweep(X_g,2,tau_ks[k,]+alpha_tlambda_gks[[g,k]],check.margin = FALSE)
-      #     #S_gk=(1/N_gs[g])*(t(Xc_gk)%*%Xc_gk) 
-      #     S_gk=(1/N_gs[g])*crossprod(Xc_gk,Xc_gk)
-      #     S_gks[[g,k]] <- S_gk
-      #     S_g=S_g+N_gks[g,k]*S_gk
-      #   }
-      #   S_gs[[g]] <- (1/N_gs[g])*S_g
-      # }
+      #S_gks <- matrix(list(NA),nrow = ngroup, ncol = nclust)
+      S_gs <- matrix(list(NA),nrow = ngroup, ncol = 1)
+      alpha_tlambda_gks <- matrix(list(NA),nrow = ngroup, ncol = nclust)
+      for(g in 1:ngroup){
+        S_g=matrix(0,nvar,nvar)
+        #X_g <- Xsup[Ncum[g,1]:Ncum[g,2],]
+        for(k in 1:nclust){
+          lambda_k=Lambda_ks[[k]]
+          tlambda_k=t(lambda_k)
+          alpha_tlambda_gks[[g,k]]=alpha_gks[[g,k]]%*%tlambda_k
+          #Xc_gk=sweep(X_g,2,tau_ks[k,]+alpha_tlambda_gks[[g,k]],check.margin = FALSE)
+          #S_gk=(1/N_gs[g])*(t(Xc_gk)%*%Xc_gk)
+          #S_gk=(1/N_gs[g])*crossprod(Xc_gk,Xc_gk)
+          #S_gks[[g,k]] <- S_gk
+          S_g=S_g+N_gks[g,k]*S_gks[[g,k]]#S_gk
+        }
+        S_gs[[g]] <- (1/N_gs[g])*S_g
+      }
       
       # compute Beta_gks and theta_gks
       Beta_gks <- matrix(list(NA), nrow = ngroup, ncol = nclust)
@@ -706,6 +706,17 @@ MixtureMG_FA_loadingsandintercepts <- function(Xsup,N_gs,nclust,nfactors,Maxiter
           S_gk=(1/N_gs[g])*crossprod(Xc_gk,Xc_gk)
           S_gks[[g,k]] <- S_gk
           S_g=S_g+N_gks[g,k]*S_gk
+        }
+        S_gs[[g]] <- (1/N_gs[g])*S_g
+      }
+    } else {
+      S_gs <- matrix(list(NA),nrow = ngroup, ncol = 1)
+      alpha_tlambda_gks <- matrix(list(NA),nrow = ngroup, ncol = nclust)
+      for(g in 1:ngroup){
+        S_g=matrix(0,nvar,nvar)
+        for(k in 1:nclust){
+          alpha_tlambda_gks[[g,k]]=alpha_gks[[g,k]]%*%t(Lambda_ks[[k]])
+          S_g=S_g+N_gks[g,k]*S_gks[[g,k]]
         }
         S_gs[[g]] <- (1/N_gs[g])*S_g
       }

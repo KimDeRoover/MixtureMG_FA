@@ -214,7 +214,7 @@ MixtureMG_FA_loadings <- function(dat,N_gs,nclust,nfactors,Maxiter = 1000,start 
         }
         
         
-        Output_Mstep <- MixtureMG_FA_Mstep(S_gs,N_gs,nvar,nclust,nfactors,design,N_gks,Beta_gks,Theta_gks,Lambda_ks,Psi_gs,Phi_gks)
+        Output_Mstep <- MixtureMG_FA_load_Mstep(S_gs,N_gs,nvar,nclust,nfactors,design,N_gks,Beta_gks,Theta_gks,Lambda_ks,Psi_gs,Phi_gks)
         Lambda_ks=Output_Mstep$Lambda_ks
         Psi_gs=Output_Mstep$Psi_gs
         Phi_gks=Output_Mstep$Phi_gks
@@ -405,7 +405,7 @@ MixtureMG_FA_loadings <- function(dat,N_gs,nclust,nfactors,Maxiter = 1000,start 
         }
       }
       
-      Output_Mstep <- MixtureMG_FA_Mstep(S_gs,N_gs,nvar,nclust,nfactors,design,N_gks,Beta_gks,Theta_gks,Lambda_ks,Psi_gs,Phi_gks)
+      Output_Mstep <- MixtureMG_FA_load_Mstep(S_gs,N_gs,nvar,nclust,nfactors,design,N_gks,Beta_gks,Theta_gks,Lambda_ks,Psi_gs,Phi_gks)
       Lambda_ks=Output_Mstep$Lambda_ks
       Psi_gs=Output_Mstep$Psi_gs
       Phi_gks=Output_Mstep$Phi_gks
@@ -546,7 +546,7 @@ MixtureMG_FA_loadings <- function(dat,N_gs,nclust,nfactors,Maxiter = 1000,start 
       }
     }
     
-    Output_Mstep <- MixtureMG_FA_Mstep(S_gs,N_gs,nvar,nclust,nfactors,design,N_gks,Beta_gks,Theta_gks,Lambda_ks,Psi_gs,Phi_gks)
+    Output_Mstep <- MixtureMG_FA_load_Mstep(S_gs,N_gs,nvar,nclust,nfactors,design,N_gks,Beta_gks,Theta_gks,Lambda_ks,Psi_gs,Phi_gks)
     Lambda_ks=Output_Mstep$Lambda_ks
     Psi_gs=Output_Mstep$Psi_gs
     Phi_gks=Output_Mstep$Phi_gks
@@ -689,7 +689,7 @@ UpdPostProb <- function(pi_ks, loglik_gks, ngroup, nclust, nfact){
 
 
 
-MixtureMG_FA_Mstep <- function(S_gs,N_gs,nvar,nclust,nfactors,design,N_gks,Beta_gks,Theta_gks,Lambda_ks,Psi_gs,Phi_gks){
+MixtureMG_FA_load_Mstep <- function(S_gs,N_gs,nvar,nclust,nfactors,design,N_gks,Beta_gks,Theta_gks,Lambda_ks,Psi_gs,Phi_gks){
   nractivatedconstraints <- 0
   ngroup <- length(N_gs)
   N_ks=colSums(N_gks)

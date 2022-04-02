@@ -63,11 +63,17 @@ MixtureMG_FA_intercepts <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,sta
   }
   
   
-  # compute group-specific means
-  mu_gs=matrix(0,ngroup,nvar)
+  # compute group-specific observed means and mean cross-products
+  #obsS_gs <- matrix(list(NA),nrow = ngroup, ncol = 1)
+  mean_gs <- matrix(0,ngroup,nvar)
+  CP_gs <- matrix(list(NA),nrow = ngroup, ncol = 1)
   for(g in 1:ngroup){
     X_g <- Xsup[Ncum[g,1]:Ncum[g,2],]
-    mu_gs[g,] <- colMeans(X_g)
+    mean_g <- colMeans(X_g)
+    mean_gs[g,] <- mean_g
+    #X_gc <- sweep(X_g,2,mean_g,check.margin = FALSE)
+    #obsS_gs[[g]] <- (1/N_gs[g])*(t(X_gc)%*%X_gc)
+    CP_gs[[g]] <- (1/N_gs[g])*(t(X_g)%*%X_g)
   }
   
   
@@ -182,17 +188,15 @@ MixtureMG_FA_intercepts <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,sta
         S_gs <- matrix(list(NA),nrow = ngroup, ncol = 1)
         for(g in 1:ngroup){
           S_g=matrix(0,nvar,nvar)
-	        X_g <- Xsup[Ncum[g,1]:Ncum[g,2],]
+          X_g <- Xsup[Ncum[g,1]:Ncum[g,2],]
+          mean_g=matrix(mean_gs[g,],nrow=1,ncol=nvar)
           for(k in 1:nclust){
-            # if(N_gks[g,k]!=0){
-              Xc_gk=X_g-(matrix(tau_ks[k,]+alpha_gks[[g,k]]%*%tLambda,ncol=nvar,nrow=N_gs[g],byrow=TRUE))
-              #S_gk=(1/N_gs[g])*(t(Xc_gk)%*%Xc_gk) 
-              S_gk=(1/N_gs[g])*crossprod(Xc_gk,Xc_gk)
-              S_gks[[g,k]] <- S_gk
-              S_g=S_g+N_gks[g,k]*S_gk
-            # } else {
-            #   S_gks[[g,k]] <- matrix(0,nvar,nvar)
-            # }
+            # Xc_gk=X_g-(matrix(tau_ks[k,]+alpha_gks[[g,k]]%*%tLambda,ncol=nvar,nrow=N_gs[g],byrow=TRUE))
+            # S_gk=(1/N_gs[g])*crossprod(Xc_gk,Xc_gk) #S_gk=(1/N_gs[g])*(t(Xc_gk)%*%Xc_gk) 
+            mu_gk=tau_ks[k,]+alpha_gks[[g,k]]%*%tLambda
+            S_gk=CP_gs[[g]]-t(mean_g)%*%mu_gk-t(mu_gk)%*%mean_g+t(mu_gk)%*%mu_gk
+            S_gks[[g,k]] <- S_gk
+            S_g=S_g+N_gks[g,k]*S_gk
           }
           S_gs[[g]] <- (1/N_gs[g])*S_g
         }
@@ -212,14 +216,14 @@ MixtureMG_FA_intercepts <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,sta
             S_gk=S_gks[[g,k]]
             theta_gk=phi_g-beta_g%*%Lambda%*%phi_g+beta_g%*%S_gk%*%t(beta_g)
             Theta_gks[[g,k]]=theta_gk
-            meanexpEta_gks[[g,k]]=(mu_gs[g,]-tau_ks[k,]-alpha_gks[[g,k]]%*%t(Lambda))%*%t(beta_g)
+            meanexpEta_gks[[g,k]]=(mean_gs[g,]-tau_ks[k,]-alpha_gks[[g,k]]%*%t(Lambda))%*%t(beta_g)
             #meanexpEta_gs[[g]]=meanexpEta_gs[[g]]+(N_gks[g,k]/N_gs[g])*meanexpEta_gks[[g,k]]
           }
           S_g=S_gs[[g]]
           Theta_gs[[g]]=phi_g-beta_g%*%Lambda%*%phi_g+beta_g%*%S_g%*%t(beta_g)
         }
         
-        Output_Mstep <- MixtureMG_FA_intercepts_Mstep(S_gs,S_gks,N_gs,nvar,nclust,nfactors,design,N_gks,Beta_gs,Theta_gks,Theta_gs,meanexpEta_gks,Lambda,Psi_gs,Phi_gs,mu_gs,tau_ks,alpha_gks)
+        Output_Mstep <- MixtureMG_FA_intercepts_Mstep(S_gs,S_gks,N_gs,nvar,nclust,nfactors,design,N_gks,Beta_gs,Theta_gks,Theta_gs,meanexpEta_gks,Lambda,Psi_gs,Phi_gs,mean_gs,tau_ks,alpha_gks)
         Lambda=Output_Mstep$Lambda
         Psi_gs=Output_Mstep$Psi_gs
         Phi_gs=Output_Mstep$Phi_gs
@@ -235,16 +239,14 @@ MixtureMG_FA_intercepts <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,sta
         for(g in 1:ngroup){
           S_g=matrix(0,nvar,nvar)
           X_g <- Xsup[Ncum[g,1]:Ncum[g,2],]
+          mean_g=matrix(mean_gs[g,],nrow=1,ncol=nvar)
           for(k in 1:nclust){
-            # if(N_gks[g,k]!=0){
-            Xc_gk=X_g-(matrix(tau_ks[k,]+alpha_gks[[g,k]]%*%tLambda,ncol=nvar,nrow=N_gs[g],byrow=TRUE))
-            #S_gk=(1/N_gs[g])*(t(Xc_gk)%*%Xc_gk) 
-            S_gk=(1/N_gs[g])*crossprod(Xc_gk,Xc_gk)
+            # Xc_gk=X_g-(matrix(tau_ks[k,]+alpha_gks[[g,k]]%*%tLambda,ncol=nvar,nrow=N_gs[g],byrow=TRUE))
+            # S_gk=(1/N_gs[g])*crossprod(Xc_gk,Xc_gk) #S_gk=(1/N_gs[g])*(t(Xc_gk)%*%Xc_gk) 
+            mu_gk=tau_ks[k,]+alpha_gks[[g,k]]%*%tLambda
+            S_gk=CP_gs[[g]]-t(mean_g)%*%mu_gk-t(mu_gk)%*%mean_g+t(mu_gk)%*%mu_gk
             S_gks[[g,k]] <- S_gk
             S_g=S_g+N_gks[g,k]*S_gk
-            # } else {
-            #   S_gks[[g,k]] <- matrix(0,nvar,nvar)
-            # }
           }
           S_gs[[g]] <- (1/N_gs[g])*S_g
         }
@@ -414,16 +416,14 @@ MixtureMG_FA_intercepts <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,sta
     for(g in 1:ngroup){
       S_g=matrix(0,nvar,nvar)
       X_g <- Xsup[Ncum[g,1]:Ncum[g,2],]
+      mean_g=matrix(mean_gs[g,],nrow=1,ncol=nvar)
       for(k in 1:nclust){
-        # if(N_gks[g,k]!=0){
-        Xc_gk=X_g-(matrix(tau_ks[k,]+alpha_gks[[g,k]]%*%tLambda,ncol=nvar,nrow=N_gs[g],byrow=TRUE))
-        #S_gk=(1/N_gs[g])*(t(Xc_gk)%*%Xc_gk) 
-        S_gk=(1/N_gs[g])*crossprod(Xc_gk,Xc_gk)
+        # Xc_gk=X_g-(matrix(tau_ks[k,]+alpha_gks[[g,k]]%*%tLambda,ncol=nvar,nrow=N_gs[g],byrow=TRUE))
+        # S_gk=(1/N_gs[g])*crossprod(Xc_gk,Xc_gk) #S_gk=(1/N_gs[g])*(t(Xc_gk)%*%Xc_gk) 
+        mu_gk=tau_ks[k,]+alpha_gks[[g,k]]%*%tLambda
+        S_gk=CP_gs[[g]]-t(mean_g)%*%mu_gk-t(mu_gk)%*%mean_g+t(mu_gk)%*%mu_gk
         S_gks[[g,k]] <- S_gk
         S_g=S_g+N_gks[g,k]*S_gk
-        # } else {
-        #   S_gks[[g,k]] <- matrix(0,nvar,nvar)
-        # }
       }
       S_gs[[g]] <- (1/N_gs[g])*S_g
     }
@@ -475,7 +475,7 @@ MixtureMG_FA_intercepts <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,sta
           for(g in 1:ngroup){
             if(N_gks[g,k]>0){
               invSigma_g=invSigma_gs[[g]]
-              summeansminusalphaLambdainvSigma=summeansminusalphaLambdainvSigma+N_gks[g,k]*(mu_gs[g,]-alpha_gks[[g,k]]%*%tLambda)%*%invSigma_g
+              summeansminusalphaLambdainvSigma=summeansminusalphaLambdainvSigma+N_gks[g,k]*(mean_gs[g,]-alpha_gks[[g,k]]%*%tLambda)%*%invSigma_g
               suminvSigma=suminvSigma+N_gks[g,k]*invSigma_g
             }
           }
@@ -488,7 +488,7 @@ MixtureMG_FA_intercepts <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,sta
         for(k in 1:nclust){
           if(N_ks[k]>0){
             invSigma_g=invSigma_gs[[g]]
-            alpha_gks[[g,k]]=(mu_gs[g,]-tau_ks[k,])%*%t(solve(((tLambda%*%invSigma_g)%*%Lambda),(tLambda%*%invSigma_g)))
+            alpha_gks[[g,k]]=(mean_gs[g,]-tau_ks[k,])%*%t(solve(((tLambda%*%invSigma_g)%*%Lambda),(tLambda%*%invSigma_g)))
           }
         }
       }
@@ -498,16 +498,14 @@ MixtureMG_FA_intercepts <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,sta
       for(g in 1:ngroup){
         S_g=matrix(0,nvar,nvar)
         X_g <- Xsup[Ncum[g,1]:Ncum[g,2],]
+        mean_g=matrix(mean_gs[g,],nrow=1,ncol=nvar)
         for(k in 1:nclust){
-          # if(N_gks[g,k]!=0){
-          Xc_gk=X_g-(matrix(tau_ks[k,]+alpha_gks[[g,k]]%*%tLambda,ncol=nvar,nrow=N_gs[g],byrow=TRUE))
-          #S_gk=(1/N_gs[g])*(t(Xc_gk)%*%Xc_gk) 
-          S_gk=(1/N_gs[g])*crossprod(Xc_gk,Xc_gk)
+          # Xc_gk=X_g-(matrix(tau_ks[k,]+alpha_gks[[g,k]]%*%tLambda,ncol=nvar,nrow=N_gs[g],byrow=TRUE))
+          # S_gk=(1/N_gs[g])*crossprod(Xc_gk,Xc_gk) #S_gk=(1/N_gs[g])*(t(Xc_gk)%*%Xc_gk) 
+          mu_gk=tau_ks[k,]+alpha_gks[[g,k]]%*%tLambda
+          S_gk=CP_gs[[g]]-t(mean_g)%*%mu_gk-t(mu_gk)%*%mean_g+t(mu_gk)%*%mu_gk
           S_gks[[g,k]] <- S_gk
           S_g=S_g+N_gks[g,k]*S_gk
-          # } else {
-          #   S_gks[[g,k]] <- matrix(0,nvar,nvar)
-          # }
         }
         S_gs[[g]] <- (1/N_gs[g])*S_g
       }
@@ -533,25 +531,15 @@ MixtureMG_FA_intercepts <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,sta
       # update mixing proportions
       pi_ks=(1/ngroup)*colSums(z_gks)
       
-#       S_gks <- matrix(list(NA),nrow = ngroup, ncol = nclust)
-#       S_gs <- matrix(list(NA),nrow = ngroup, ncol = 1)
-#       for(g in 1:ngroup){
-#         S_g=matrix(0,nvar,nvar)
-# 	      X_g <- Xsup[Ncum[g,1]:Ncum[g,2],]
-#         for(k in 1:nclust){
-#           # if(N_gks[g,k]!=0){
-#             Xc_gk=X_g-t(matrix(tau_ks[k,]+alpha_gks[[g,k]]%*%t(Lambda),ncol=N_gs[g],nrow=nvar))
-#             S_gk=(1/N_gs[g])*(t(Xc_gk)%*%Xc_gk)
-#             S_gks[[g,k]] <- S_gk
-#             S_g=S_g+N_gks[g,k]*S_gk
-#           # }
-#           # else{
-#           #   S_gks[[g,k]] <- matrix(0,nvar,nvar)
-#           # }
-#         }
-#         S_gs[[g]] <- (1/N_gs[g])*S_g
-#       }
-#       
+      S_gs <- matrix(list(NA),nrow = ngroup, ncol = 1)
+      for(g in 1:ngroup){
+        S_g=matrix(0,nvar,nvar)
+	      for(k in 1:nclust){
+            S_g=S_g+N_gks[g,k]*S_gks[[g,k]]
+        }
+        S_gs[[g]] <- (1/N_gs[g])*S_g
+      }
+
       # compute Beta_gs and theta_gks
       Beta_gs <- matrix(list(NA), nrow = ngroup, ncol = 1)
       Theta_gks <- matrix(list(NA), nrow = ngroup, ncol = nclust)
@@ -567,14 +555,14 @@ MixtureMG_FA_intercepts <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,sta
           S_gk=S_gks[[g,k]]
           theta_gk=phi_g-beta_g%*%Lambda%*%phi_g+beta_g%*%S_gk%*%t(beta_g)
           Theta_gks[[g,k]]=theta_gk
-          meanexpEta_gks[[g,k]]=(mu_gs[g,]-tau_ks[k,]-alpha_gks[[g,k]]%*%t(Lambda))%*%t(beta_g)
+          meanexpEta_gks[[g,k]]=(mean_gs[g,]-tau_ks[k,]-alpha_gks[[g,k]]%*%t(Lambda))%*%t(beta_g)
           #meanexpEta_gs[[g]]=meanexpEta_gs[[g]]+(N_gks[g,k]/N_gs[g])*meanexpEta_gks[[g,k]]
         }
         S_g=S_gs[[g]]
         Theta_gs[[g]]=phi_g-beta_g%*%Lambda%*%phi_g+beta_g%*%S_g%*%t(beta_g)
       }
       
-      Output_Mstep <- MixtureMG_FA_intercepts_Mstep(S_gs,S_gks,N_gs,nvar,nclust,nfactors,design,N_gks,Beta_gs,Theta_gks,Theta_gs,meanexpEta_gks,Lambda,Psi_gs,Phi_gs,mu_gs,tau_ks,alpha_gks)
+      Output_Mstep <- MixtureMG_FA_intercepts_Mstep(S_gs,S_gks,N_gs,nvar,nclust,nfactors,design,N_gks,Beta_gs,Theta_gks,Theta_gs,meanexpEta_gks,Lambda,Psi_gs,Phi_gs,mean_gs,tau_ks,alpha_gks)
       Lambda=Output_Mstep$Lambda
       Psi_gs=Output_Mstep$Psi_gs
       Phi_gs=Output_Mstep$Phi_gs
@@ -590,16 +578,14 @@ MixtureMG_FA_intercepts <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,sta
       for(g in 1:ngroup){
         S_g=matrix(0,nvar,nvar)
         X_g <- Xsup[Ncum[g,1]:Ncum[g,2],]
+        mean_g=matrix(mean_gs[g,],nrow=1,ncol=nvar)
         for(k in 1:nclust){
-          # if(N_gks[g,k]!=0){
-          Xc_gk=X_g-(matrix(tau_ks[k,]+alpha_gks[[g,k]]%*%tLambda,ncol=nvar,nrow=N_gs[g],byrow=TRUE))
-          #S_gk=(1/N_gs[g])*(t(Xc_gk)%*%Xc_gk) 
-          S_gk=(1/N_gs[g])*crossprod(Xc_gk,Xc_gk)
+          # Xc_gk=X_g-(matrix(tau_ks[k,]+alpha_gks[[g,k]]%*%tLambda,ncol=nvar,nrow=N_gs[g],byrow=TRUE))
+          # S_gk=(1/N_gs[g])*crossprod(Xc_gk,Xc_gk) #S_gk=(1/N_gs[g])*(t(Xc_gk)%*%Xc_gk) 
+          mu_gk=tau_ks[k,]+alpha_gks[[g,k]]%*%tLambda
+          S_gk=CP_gs[[g]]-t(mean_g)%*%mu_gk-t(mu_gk)%*%mean_g+t(mu_gk)%*%mu_gk
           S_gks[[g,k]] <- S_gk
           S_g=S_g+N_gks[g,k]*S_gk
-          # } else {
-          #   S_gks[[g,k]] <- matrix(0,nvar,nvar)
-          # }
         }
         S_gs[[g]] <- (1/N_gs[g])*S_g
       }
@@ -725,7 +711,7 @@ MixtureMG_FA_intercepts <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,sta
         for(g in 1:ngroup){
           if(N_gks[g,k]>0){
             invSigma_g=invSigma_gs[[g]]
-            summeansminusalphaLambdainvSigma=summeansminusalphaLambdainvSigma+N_gks[g,k]*(mu_gs[g,]-alpha_gks[[g,k]]%*%tLambda)%*%invSigma_g
+            summeansminusalphaLambdainvSigma=summeansminusalphaLambdainvSigma+N_gks[g,k]*(mean_gs[g,]-alpha_gks[[g,k]]%*%tLambda)%*%invSigma_g
             suminvSigma=suminvSigma+N_gks[g,k]*invSigma_g
           }
         }
@@ -738,7 +724,7 @@ MixtureMG_FA_intercepts <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,sta
       invSigma_g=invSigma_gs[[g]]
       for(k in 1:nclust){
         if(N_ks[k]>0){
-          alpha_gks[[g,k]]=(mu_gs[g,]-tau_ks[k,])%*%t(solve(((tLambda%*%invSigma_g)%*%Lambda),(tLambda%*%invSigma_g)))
+          alpha_gks[[g,k]]=(mean_gs[g,]-tau_ks[k,])%*%t(solve(((tLambda%*%invSigma_g)%*%Lambda),(tLambda%*%invSigma_g)))
         }
       }
     }
@@ -748,16 +734,14 @@ MixtureMG_FA_intercepts <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,sta
     for(g in 1:ngroup){
       S_g=matrix(0,nvar,nvar)
       X_g <- Xsup[Ncum[g,1]:Ncum[g,2],]
+      mean_g=matrix(mean_gs[g,],nrow=1,ncol=nvar)
       for(k in 1:nclust){
-        # if(N_gks[g,k]!=0){
-        Xc_gk=X_g-(matrix(tau_ks[k,]+alpha_gks[[g,k]]%*%tLambda,ncol=nvar,nrow=N_gs[g],byrow=TRUE))
-        #S_gk=(1/N_gs[g])*(t(Xc_gk)%*%Xc_gk) 
-        S_gk=(1/N_gs[g])*crossprod(Xc_gk,Xc_gk)
+        # Xc_gk=X_g-(matrix(tau_ks[k,]+alpha_gks[[g,k]]%*%tLambda,ncol=nvar,nrow=N_gs[g],byrow=TRUE))
+        # S_gk=(1/N_gs[g])*crossprod(Xc_gk,Xc_gk) #S_gk=(1/N_gs[g])*(t(Xc_gk)%*%Xc_gk) 
+        mu_gk=tau_ks[k,]+alpha_gks[[g,k]]%*%tLambda
+        S_gk=CP_gs[[g]]-t(mean_g)%*%mu_gk-t(mu_gk)%*%mean_g+t(mu_gk)%*%mu_gk
         S_gks[[g,k]] <- S_gk
         S_g=S_g+N_gks[g,k]*S_gk
-        # } else {
-        #   S_gks[[g,k]] <- matrix(0,nvar,nvar)
-        # }
       }
       S_gs[[g]] <- (1/N_gs[g])*S_g
     }
@@ -784,25 +768,15 @@ MixtureMG_FA_intercepts <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,sta
     # update mixing proportions
     pi_ks=(1/ngroup)*colSums(z_gks)
     
-    # S_gks <- matrix(list(NA),nrow = ngroup, ncol = nclust)
-    # S_gs <- matrix(list(NA),nrow = ngroup, ncol = 1)
-    # for(g in 1:ngroup){
-    #   S_g=matrix(0,nvar,nvar)
-    #   X_g <- Xsup[Ncum[g,1]:Ncum[g,2],]
-    #   for(k in 1:nclust){
-    #     # if(N_gks[g,k]!=0){
-    #       Xc_gk=X_g-t(matrix(tau_ks[k,]+alpha_gks[[g,k]]%*%t(Lambda),ncol=N_gs[g],nrow=nvar))
-    #       S_gk=(1/N_gs[g])*(t(Xc_gk)%*%Xc_gk)
-    #       S_gks[[g,k]] <- S_gk
-    #       S_g=S_g+N_gks[g,k]*S_gk
-    #     # }
-    #     # else{
-    #     #   S_gks[[g,k]] <- matrix(0,nvar,nvar)
-    #     # }
-    #   }
-    #   S_gs[[g]] <- (1/N_gs[g])*S_g
-    # }
-    # 
+    S_gs <- matrix(list(NA),nrow = ngroup, ncol = 1)
+    for(g in 1:ngroup){
+      S_g=matrix(0,nvar,nvar)
+      for(k in 1:nclust){
+        S_g=S_g+N_gks[g,k]*S_gks[[g,k]]
+      }
+      S_gs[[g]] <- (1/N_gs[g])*S_g
+    }
+    
     # compute Beta_gs and theta_gks
     Beta_gs <- matrix(list(NA), nrow = ngroup, ncol = 1)
     Theta_gks <- matrix(list(NA), nrow = ngroup, ncol = nclust)
@@ -818,14 +792,14 @@ MixtureMG_FA_intercepts <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,sta
         S_gk=S_gks[[g,k]]
         theta_gk=phi_g-beta_g%*%Lambda%*%phi_g+beta_g%*%S_gk%*%t(beta_g)
         Theta_gks[[g,k]]=theta_gk
-        meanexpEta_gks[[g,k]]=(mu_gs[g,]-tau_ks[k,]-alpha_gks[[g,k]]%*%t(Lambda))%*%t(beta_g)
+        meanexpEta_gks[[g,k]]=(mean_gs[g,]-tau_ks[k,]-alpha_gks[[g,k]]%*%t(Lambda))%*%t(beta_g)
         #meanexpEta_gs[[g]]=meanexpEta_gs[[g]]+(N_gks[g,k]/N_gs[g])*meanexpEta_gks[[g,k]]
       }
       S_g=S_gs[[g]]
       Theta_gs[[g]]=phi_g-beta_g%*%Lambda%*%phi_g+beta_g%*%S_g%*%t(beta_g)
     }
     
-    Output_Mstep <- MixtureMG_FA_intercepts_Mstep(S_gs,S_gks,N_gs,nvar,nclust,nfactors,design,N_gks,Beta_gs,Theta_gks,Theta_gs,meanexpEta_gks,Lambda,Psi_gs,Phi_gs,mu_gs,tau_ks,alpha_gks)
+    Output_Mstep <- MixtureMG_FA_intercepts_Mstep(S_gs,S_gks,N_gs,nvar,nclust,nfactors,design,N_gks,Beta_gs,Theta_gks,Theta_gs,meanexpEta_gks,Lambda,Psi_gs,Phi_gs,mean_gs,tau_ks,alpha_gks)
     Lambda=Output_Mstep$Lambda
     Psi_gs=Output_Mstep$Psi_gs
     Phi_gs=Output_Mstep$Phi_gs
@@ -841,16 +815,14 @@ MixtureMG_FA_intercepts <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,sta
     for(g in 1:ngroup){
       S_g=matrix(0,nvar,nvar)
       X_g <- Xsup[Ncum[g,1]:Ncum[g,2],]
+      mean_g=matrix(mean_gs[g,],nrow=1,ncol=nvar)
       for(k in 1:nclust){
-        # if(N_gks[g,k]!=0){
-        Xc_gk=X_g-(matrix(tau_ks[k,]+alpha_gks[[g,k]]%*%tLambda,ncol=nvar,nrow=N_gs[g],byrow=TRUE))
-        #S_gk=(1/N_gs[g])*(t(Xc_gk)%*%Xc_gk) 
-        S_gk=(1/N_gs[g])*crossprod(Xc_gk,Xc_gk)
+        # Xc_gk=X_g-(matrix(tau_ks[k,]+alpha_gks[[g,k]]%*%tLambda,ncol=nvar,nrow=N_gs[g],byrow=TRUE))
+        # S_gk=(1/N_gs[g])*crossprod(Xc_gk,Xc_gk) #S_gk=(1/N_gs[g])*(t(Xc_gk)%*%Xc_gk) 
+        mu_gk=tau_ks[k,]+alpha_gks[[g,k]]%*%tLambda
+        S_gk=CP_gs[[g]]-t(mean_g)%*%mu_gk-t(mu_gk)%*%mean_g+t(mu_gk)%*%mu_gk
         S_gks[[g,k]] <- S_gk
         S_g=S_g+N_gks[g,k]*S_gk
-        # } else {
-        #   S_gks[[g,k]] <- matrix(0,nvar,nvar)
-        # }
       }
       S_gs[[g]] <- (1/N_gs[g])*S_g
     }
@@ -953,7 +925,7 @@ MixtureMG_FA_intercepts <- function(Xsup,N_gs,nclust,nfactors,Maxiter = 1000,sta
       summeansminusalphaLambdainvSigma=matrix(0,1,nvar)
       for(g in 1:ngroup){
         invSigma_g=invSigma_gs[[g]]
-        summeansminusalphaLambdainvSigma=summeansminusalphaLambdainvSigma+N_gks[g,k]*(mu_gs[g,]-alpha_gks[[g,k]]%*%t(Lambda))%*%invSigma_g
+        summeansminusalphaLambdainvSigma=summeansminusalphaLambdainvSigma+N_gks[g,k]*(mean_gs[g,]-alpha_gks[[g,k]]%*%t(Lambda))%*%invSigma_g
         suminvSigma=suminvSigma+N_gks[g,k]*invSigma_g
       }
       tau_ks[k,]=t(solve(suminvSigma,t(summeansminusalphaLambdainvSigma)))
@@ -1005,7 +977,7 @@ UpdPostProb <- function(pi_ks, loglik_gks, ngroup, nclust, nfact){
 
 
 
-MixtureMG_FA_intercepts_Mstep <- function(S_gs,S_gks,N_gs,nvar,nclust,nfactors,design,N_gks,Beta_gs,Theta_gks,Theta_gs,meanexpEta_gks,Lambda,Psi_gs,Phi_gs,mu_gs,tau_ks,alpha_gks){
+MixtureMG_FA_intercepts_Mstep <- function(S_gs,S_gks,N_gs,nvar,nclust,nfactors,design,N_gks,Beta_gs,Theta_gks,Theta_gs,meanexpEta_gks,Lambda,Psi_gs,Phi_gs,mean_gs,tau_ks,alpha_gks){
   nractivatedconstraints <- 0
   ngroup <- length(N_gs)
   N_ks=colSums(N_gks)
@@ -1026,8 +998,8 @@ MixtureMG_FA_intercepts_Mstep <- function(S_gs,S_gks,N_gs,nvar,nclust,nfactors,d
       for(g in 1:ngroup){
         if(N_gks[g,k]>0){
           invPsi_g=invPsi_gs[[g]]
-        summeansminusalphaLambdainvPsi=summeansminusalphaLambdainvPsi+N_gks[g,k]*(mu_gs[g,]-alpha_gks[[g,k]]%*%tLambda-meanexpEta_gks[[g,k]]%*%tLambda)%*%invPsi_g
-        suminvPsi=suminvPsi+N_gks[g,k]*invPsi_g
+          summeansminusalphaLambdainvPsi=summeansminusalphaLambdainvPsi+N_gks[g,k]*(mean_gs[g,]-alpha_gks[[g,k]]%*%tLambda-meanexpEta_gks[[g,k]]%*%tLambda)%*%invPsi_g
+          suminvPsi=suminvPsi+N_gks[g,k]*invPsi_g
         }
       }
       tau_ks[k,]=t(solve(suminvPsi,t(summeansminusalphaLambdainvPsi)))
@@ -1039,7 +1011,7 @@ MixtureMG_FA_intercepts_Mstep <- function(S_gs,S_gks,N_gs,nvar,nclust,nfactors,d
     invPsi_g=invPsi_gs[[g]]
     for(k in 1:nclust){
       if(N_ks[k]>0){
-        alpha_gks[[g,k]]=(mu_gs[g,]-tau_ks[k,]-meanexpEta_gks[[g,k]]%*%tLambda)%*%t(solve(((tLambda%*%invPsi_g)%*%Lambda),(tLambda%*%invPsi_g)))
+        alpha_gks[[g,k]]=(mean_gs[g,]-tau_ks[k,]-meanexpEta_gks[[g,k]]%*%tLambda)%*%t(solve(((tLambda%*%invPsi_g)%*%Lambda),(tLambda%*%invPsi_g)))
       }
     }
   }
@@ -1067,7 +1039,7 @@ MixtureMG_FA_intercepts_Mstep <- function(S_gs,S_gks,N_gs,nvar,nclust,nfactors,d
           meanexpeta_gk=meanexpeta_gk[d_j]
           talpha_gk=t(alpha_gk)
           sumthetaalpha=sumthetaalpha+(N_gks[g,k]/psi_g[j,j])*(theta_gk+alpha_gk%*%talpha_gk+meanexpeta_gk%*%talpha_gk)
-          summeansalpha=summeansalpha+(N_gks[g,k]/psi_g[j,j])*((mu_gs[g,j]-tau_ks[k,j])%*%alpha_gk)
+          summeansalpha=summeansalpha+(N_gks[g,k]/psi_g[j,j])*((mean_gs[g,j]-tau_ks[k,j])%*%alpha_gk)
         }
       }
     }

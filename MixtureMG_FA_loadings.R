@@ -47,7 +47,7 @@ MixtureMG_FA_loadings <- function(dat,N_gs,nclust,nfactors,Maxiter = 1000,start 
   
   if (nrow(dat)==N){ # input is raw data matrix
     nvar=ncol(dat)
-    Xsup=as.matrix(Xsup)
+    Xsup=as.matrix(dat)
     Ncum <- matrix(0,ngroup,2)
     Ncum[1,1]=1 
     Ncum[1,2]=N_gs[1]

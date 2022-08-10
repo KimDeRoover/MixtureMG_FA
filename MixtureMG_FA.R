@@ -72,7 +72,7 @@ MixtureMG_FA <- function(data,cluster.spec,nsclust,nfactors,Maxiter = 5000,nruns
             }
             rotatedloadings=rot$loadings
             output_nclust$Lambda_ks[[k]]=rotatedloadings
-            T_matrix=rot$Th
+            T_matrix=t(solve(rot$Th))
             invT=solve(T_matrix)
             for(g in 1:G){ # counter-rotate all corresponding sets of factor (co)variances
               output_nclust$Phi_gks[[g,k]]=invT%*%output_nclust$Phi_gks[[g,k]]%*%t(invT)
@@ -116,7 +116,7 @@ MixtureMG_FA <- function(data,cluster.spec,nsclust,nfactors,Maxiter = 5000,nruns
           }
           rotatedloadings=rot$loadings
           output_nclust$Lambda=rotatedloadings
-          T_matrix=rot$Th
+          T_matrix=t(solve(rot$Th))
           invT=solve(T_matrix)
           for(g in 1:G){ # counter-rotate all sets of factor (co)variances
             output_nclust$Phi_gs[[g]]=invT%*%output_nclust$Phi_gs[[g]]%*%t(invT)
@@ -165,7 +165,7 @@ MixtureMG_FA <- function(data,cluster.spec,nsclust,nfactors,Maxiter = 5000,nruns
             }
             rotatedloadings=rot$loadings
             output_nclust$Lambda_ks[[k]]=rotatedloadings
-            T_matrix=rot$Th
+            T_matrix=t(solve(rot$Th))
             invT=solve(T_matrix)
             for(g in 1:G){ # counter-rotate all sets of factor (co)variances and factor means
               output_nclust$Phi_gks[[g,k]]=invT%*%output_nclust$Phi_gks[[g,k]]%*%t(invT)
